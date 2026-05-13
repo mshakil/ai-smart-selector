@@ -109,13 +109,10 @@ jobs:
     name: Publish to Chrome Web Store
     runs-on: ubuntu-latest
     needs: github-release
-    # Only runs when CWS secrets are present in the repo.
-    # Add them in: Settings → Secrets → Actions
-    if: >
-      vars.CWS_EXTENSION_ID != '' &&
-      secrets.CWS_CLIENT_ID != '' &&
-      secrets.CWS_CLIENT_SECRET != '' &&
-      secrets.CWS_REFRESH_TOKEN != ''
+    # Only runs when CWS_EXTENSION_ID is set as a repo variable.
+    # Add it in: Settings → Variables → Actions → New repository variable
+    # Add secrets in: Settings → Secrets → Actions
+    if: vars.CWS_EXTENSION_ID != ''
 
     steps:
       - name: Checkout
