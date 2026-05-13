@@ -33,6 +33,7 @@ const INPUT = {
   selector: '[data-testid="submit"]',
   selectorStrategy: 'data-testid',
   framework: 'playwright' as const,
+  action: 'click' as const,
 };
 
 describe('PatchManager', () => {
