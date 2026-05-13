@@ -48,6 +48,7 @@ jobs:
     name: GitHub Release + Extension zip
     runs-on: ubuntu-latest
     needs: publish-npm
+    if: always()   # run even if npm publish failed
     permissions:
       contents: write
 
