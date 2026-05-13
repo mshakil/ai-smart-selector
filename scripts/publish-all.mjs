@@ -20,7 +20,10 @@ const args = process.argv.slice(2);
 const DRY_RUN    = args.includes('--dry-run');
 const SKIP_BUILD = args.includes('--skip-build');
 const otpIdx     = args.indexOf('--otp');
-const OTP        = otpIdx !== -1 ? args[otpIdx + 1] : null;
+const otpEqualsArg = args.find(a => a.startsWith('--otp='));
+const OTP        = otpEqualsArg
+  ? otpEqualsArg.slice('--otp='.length)
+  : otpIdx !== -1 ? args[otpIdx + 1] : null;
 
 // Publish in strict dependency order.
 const PACKAGES = [
@@ -53,13 +56,18 @@ function separator(label) {
 
 separator(DRY_RUN ? 'DRY RUN — no packages will be published' : 'SmartLocator — publish all packages');
 
-// Check npm auth (skip in dry-run to allow CI without credentials).
+// Check npm auth (skip in dry-run or when NODE_AUTH_TOKEN is set by CI).
 if (!DRY_RUN) {
-  try {
-    execSync('npm whoami', { stdio: 'pipe' });
-  } catch {
-    console.error('\n  ✗ Not logged in to npm. Run: npm login\n');
-    process.exit(1);
+  if (process.env.NODE_AUTH_TOKEN) {
+    console.log('  Auth     : NODE_AUTH_TOKEN (CI)');
+  } else {
+    try {
+      const who = execSync('npm whoami', { stdio: 'pipe' }).toString().trim();
+      console.log(`  Auth     : ${who} (npm login)`);
+    } catch {
+      console.error('\n  ✗ Not logged in to npm. Run: npm login\n');
+      process.exit(1);
+    }
   }
 }
 
@@ -85,7 +93,7 @@ const publishFlags = [
   '--no-git-checks',
   '--ignore-scripts',            // build already done above
   DRY_RUN ? '--dry-run' : '',
-  OTP      ? `--otp ${OTP}` : '',
+  OTP      ? `--otp=${OTP}` : '',
 ].filter(Boolean).join(' ');
 
 for (const pkg of PACKAGES) {
