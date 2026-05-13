@@ -11,3 +11,5 @@ coverage/
 .smartlocator/
 *.tsbuildinfo
 *.crx
+npmpackage.md
+PLAN.md
