@@ -21,18 +21,28 @@ export function parsePageObject(filePath: string, rootDir: string): PageObjectEn
     const className = classDecl.getName();
     if (!className) continue;
 
-    // Collect names of existing locator properties (for duplicate prevention).
     const existingSelectors: string[] = [];
+
+    // Property-style: readonly submitBtn = this.page.locator(...)
     for (const prop of classDecl.getProperties()) {
       const init = prop.getInitializer()?.getText() ?? '';
-      if (
-        init.includes('page.') ||
-        init.includes('locator(') ||
-        init.includes('getBy') ||
-        init.includes('cy.get(') ||
-        init.includes('cy.contains(')
-      ) {
+      if (isLocatorExpression(init)) {
         existingSelectors.push(prop.getName());
+      }
+    }
+
+    // Constructor-style: this.submitBtn = page.locator(...)
+    for (const ctor of classDecl.getConstructors()) {
+      for (const stmt of ctor.getStatements()) {
+        const text = stmt.getText();
+        // Match: this.<name> = <locator expression>
+        const match = text.match(/^this\.(\w+)\s*=/);
+        if (match && isLocatorExpression(text)) {
+          const name = match[1];
+          if (!existingSelectors.includes(name)) {
+            existingSelectors.push(name);
+          }
+        }
       }
     }
 
@@ -46,6 +56,19 @@ export function parsePageObject(filePath: string, rootDir: string): PageObjectEn
   }
 
   return entries;
+}
+
+function isLocatorExpression(text: string): boolean {
+  return (
+    text.includes('locator(') ||
+    text.includes('getByTestId(') ||
+    text.includes('getByLabel(') ||
+    text.includes('getByRole(') ||
+    text.includes('getByText(') ||
+    text.includes('getByPlaceholder(') ||
+    text.includes('cy.get(') ||
+    text.includes('cy.contains(')
+  );
 }
 
 function extractRouteHints(className: string, filePath: string, rootDir: string): string[] {

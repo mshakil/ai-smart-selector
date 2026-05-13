@@ -16,5 +16,17 @@ export function isDuplicateProperty(filePath: string, className: string, propert
   const classDecl = sourceFile.getClass(className);
   if (!classDecl) return false;
 
-  return classDecl.getProperties().some(p => p.getName() === propertyName);
+  // Check property-style declarations
+  const hasProperty = classDecl.getProperties().some(p => p.getName() === propertyName);
+  if (hasProperty) return true;
+
+  // Check constructor-style: this.<propertyName> = ...
+  for (const ctor of classDecl.getConstructors()) {
+    const hasAssignment = ctor.getStatements().some(stmt => {
+      return stmt.getText().match(new RegExp(`^this\\.${propertyName}\\s*=`));
+    });
+    if (hasAssignment) return true;
+  }
+
+  return false;
 }
