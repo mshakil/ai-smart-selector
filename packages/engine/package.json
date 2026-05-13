@@ -1,0 +1,30 @@
+{
+  "name": "@smartlocator/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@smartlocator/shared": "workspace:*",
+    "@smartlocator/framework-adapters": "workspace:*",
+    "chokidar": "^3.6.0",
+    "diff": "^5.2.0",
+    "glob": "^10.4.2",
+    "ts-morph": "^23.0.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^5.2.1",
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5",
+    "vitest": "^2.0.0"
+  }
+}

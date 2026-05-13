@@ -1,0 +1,6 @@
+/* No @tailwind base — we're injecting into Shadow DOM and don't need a CSS reset. */
+@tailwind components;
+@tailwind utilities;
+
+/* Scope all styles to the shadow host so nothing leaks. */
+*, *::before, *::after { box-sizing: border-box; }
