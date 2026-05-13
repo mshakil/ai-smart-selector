@@ -9,6 +9,10 @@ let reconnectDelay = RECONNECT_BASE_MS;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const connectedTabs = new Set<number>();
 
+// APPROVE_PATCH and ROLLBACK_PATCH must not be dropped during transient
+// disconnects. Queue them and flush as soon as the socket is open.
+const criticalQueue: string[] = [];
+
 function broadcast(msg: object) {
   for (const tabId of connectedTabs) {
     chrome.tabs.sendMessage(tabId, msg).catch(() => connectedTabs.delete(tabId));
@@ -17,6 +21,13 @@ function broadcast(msg: object) {
 
 function clearTimer() {
   if (reconnectTimer !== null) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+}
+
+function flushQueue() {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  while (criticalQueue.length > 0) {
+    ws.send(criticalQueue.shift()!);
+  }
 }
 
 function connect() {
@@ -28,6 +39,7 @@ function connect() {
     reconnectDelay = RECONNECT_BASE_MS;
     clearTimer();
     broadcast({ type: 'WS_STATUS', connected: true });
+    flushQueue();
   });
 
   ws.addEventListener('message', ({ data }: MessageEvent) => {
@@ -57,7 +69,6 @@ chrome.runtime.onMessage.addListener((
 
   if (msg.type === 'CONTENT_READY' && tabId !== undefined) {
     connectedTabs.add(tabId);
-    // Immediately tell the tab the current connection state.
     chrome.tabs.sendMessage(tabId, {
       type: 'WS_STATUS',
       connected: ws?.readyState === WebSocket.OPEN,
@@ -65,8 +76,23 @@ chrome.runtime.onMessage.addListener((
     return;
   }
 
-  if (msg.type === 'TO_AGENT' && msg.event && ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg.event));
+  if (msg.type === 'TO_AGENT' && msg.event) {
+    // Re-register the sending tab on every message so that after a SW
+    // restart (connectedTabs wiped) the response still reaches the overlay.
+    if (tabId !== undefined) connectedTabs.add(tabId);
+
+    const isCritical =
+      msg.event.type === 'APPROVE_PATCH' || msg.event.type === 'ROLLBACK_PATCH';
+
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(msg.event));
+    } else if (isCritical) {
+      // Queue and ensure reconnection is in progress — will flush on open.
+      criticalQueue.push(JSON.stringify(msg.event));
+      connect();
+    }
+    // Non-critical events (ELEMENT_CAPTURED, REQUEST_PATCH) are intentionally
+    // dropped when disconnected — the user will see the disconnected toast.
   }
 });
 
