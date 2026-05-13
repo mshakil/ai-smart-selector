@@ -1,4 +1,5 @@
-import type { IFrameworkAdapter, ActionType, GeneratedCode } from '../interface';
+import type { IFrameworkAdapter, GeneratedCode } from '../interface';
+import type { ActionType } from '@smartlocator/shared';
 import { toCamelCase, toPascalCase } from '../utils/naming';
 
 export class PlaywrightAdapter implements IFrameworkAdapter {

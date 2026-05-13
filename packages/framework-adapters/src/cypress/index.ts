@@ -1,4 +1,5 @@
-import type { IFrameworkAdapter, ActionType, GeneratedCode } from '../interface';
+import type { IFrameworkAdapter, GeneratedCode } from '../interface';
+import type { ActionType } from '@smartlocator/shared';
 import { toPascalCase } from '../utils/naming';
 
 export class CypressAdapter implements IFrameworkAdapter {

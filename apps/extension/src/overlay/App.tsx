@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import type { SelectorCandidatesEvent, SelectorCandidate, PatchPreviewEvent, PatchAppliedEvent } from '@smartlocator/shared';
+import type { SelectorCandidatesEvent, SelectorCandidate, PatchPreviewEvent, PatchAppliedEvent, ActionType } from '@smartlocator/shared';
 import type { OverlayState } from './store';
 
 export interface OverlayCallbacks {
-  onRequestPatch: (candidate: SelectorCandidate, targetFile: string, elementName: string) => void;
+  onRequestPatch: (candidate: SelectorCandidate, targetFile: string, elementName: string, action: ActionType) => void;
   onApprovePatch: (patchId: string) => void;
   onRejectPatch: (patchId: string) => void;
   onRollbackPatch: (patchId: string) => void;
@@ -135,6 +135,7 @@ function CandidatesPanel({
   const [expandedIdx, setExpanded] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [elementName, setElementName] = useState('');
+  const [action, setAction] = useState<ActionType>('click');
   const [targetFile, setTargetFile] = useState(
     payload.targetFileRecommendation || payload.availableFiles[0] || ''
   );
@@ -153,7 +154,7 @@ function CandidatesPanel({
     const name = elementName.trim();
     const file = targetFile.trim();
     if (!name || !file) return;
-    callbacks.onRequestPatch(all[selectedIdx], file, name);
+    callbacks.onRequestPatch(all[selectedIdx], file, name, action);
     setShowForm(false);
   }
 
@@ -229,6 +230,24 @@ function CandidatesPanel({
               onKeyDown={e => { if (e.key === 'Enter') submitGenerate(); }}
               autoFocus
             />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-muted text-[10px] font-semibold uppercase tracking-wide">
+              Action
+            </label>
+            <select
+              className="bg-surface border border-border rounded px-2.5 py-1.5 text-text text-xs outline-none focus:border-blue"
+              value={action}
+              onChange={e => setAction(e.target.value as ActionType)}
+            >
+              <option value="click">click</option>
+              <option value="fill">fill (type text)</option>
+              <option value="check">check (checkbox/radio)</option>
+              <option value="select">select (dropdown)</option>
+              <option value="hover">hover</option>
+              <option value="focus">focus</option>
+              <option value="clear">clear</option>
+            </select>
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-muted text-[10px] font-semibold uppercase tracking-wide">

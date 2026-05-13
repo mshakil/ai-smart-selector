@@ -2,6 +2,8 @@ import type { ElementCapturePayload } from '../types/dom';
 import type { SelectorCandidate } from '../types/selector';
 export type { SelectorCandidate };
 
+export type ActionType = 'click' | 'fill' | 'check' | 'select' | 'hover' | 'focus' | 'clear';
+
 // ── Client → Server ──────────────────────────────────────────────────────────
 
 export interface ElementCapturedEvent {
@@ -15,6 +17,7 @@ export interface RequestPatchEvent {
     candidate: SelectorCandidate;
     targetFile: string;
     elementName: string;
+    action: ActionType;
   };
 }
 

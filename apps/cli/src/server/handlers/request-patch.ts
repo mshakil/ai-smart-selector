@@ -10,7 +10,7 @@ export async function handleRequestPatch(
   patchManager: PatchManager,
   framework: Framework | null,
 ): Promise<void> {
-  const { candidate, targetFile, elementName } = payload;
+  const { candidate, targetFile, elementName, action } = payload;
 
   if (!framework) {
     send(ws, { type: 'ERROR', payload: { code: 'NO_FRAMEWORK', message: 'Could not detect framework (playwright/cypress). Ensure package.json lists @playwright/test or cypress.' } });
@@ -24,6 +24,7 @@ export async function handleRequestPatch(
     selector: candidate.selector,
     selectorStrategy: candidate.strategy,
     framework,
+    action,
   });
 
   if ('error' in result) {

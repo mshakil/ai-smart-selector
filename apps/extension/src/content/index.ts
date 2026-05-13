@@ -19,8 +19,8 @@ let captureMode = false;
 let lastCandidates: SelectorCandidatesEvent['payload'] | null = null;
 
 const host = createOverlayHost({
-  onRequestPatch(candidate: SelectorCandidate, targetFile: string, elementName: string) {
-    sendToAgent({ type: 'REQUEST_PATCH', payload: { candidate, targetFile, elementName } });
+  onRequestPatch(candidate: SelectorCandidate, targetFile: string, elementName: string, action) {
+    sendToAgent({ type: 'REQUEST_PATCH', payload: { candidate, targetFile, elementName, action } });
   },
   onApprovePatch(patchId: string) {
     sendToAgent({ type: 'APPROVE_PATCH', payload: { patchId } });

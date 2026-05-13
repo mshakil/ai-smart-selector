@@ -1,5 +1,6 @@
 import { Project, type ClassDeclaration, type ConstructorDeclaration } from 'ts-morph';
 import type { Framework } from '../analyzer/framework-detector';
+import type { ActionType } from '@smartlocator/shared';
 
 export interface GeneratedInsertion {
   filePath: string;
@@ -15,6 +16,7 @@ export interface CodeGenerationInput {
   selector: string;
   selectorStrategy: string;
   framework: Framework;
+  action: ActionType;
 }
 
 type SelectorConvention = 'property' | 'constructor';
@@ -48,9 +50,7 @@ export function generateInsertion(input: CodeGenerationInput): GeneratedInsertio
 
     // Add property declaration with type annotation (no initializer)
     const lastProp = classDecl.getProperties().at(-1);
-    if (lastProp) {
-      lastProp.appendWhitespace('\n  ');
-    }
+    if (lastProp) lastProp.appendWhitespace('\n  ');
     classDecl.addProperty({ name: input.propertyName, type: 'Locator' });
 
     // Add assignment at the end of the constructor body
@@ -103,6 +103,9 @@ export function generateInsertion(input: CodeGenerationInput): GeneratedInsertio
       }
     }
   }
+
+  // Always add the action method regardless of locator convention
+  addActionMethod(classDecl, input.propertyName, input.action, input.framework);
 
   return {
     filePath: input.filePath,
@@ -157,6 +160,75 @@ function detectPageParam(ctor: ConstructorDeclaration): string {
   }
   // Fall back: first parameter, or literal 'page'
   return ctor.getParameters()[0]?.getName() ?? 'page';
+}
+
+// ── Action method insertion ───────────────────────────────────────────────────
+
+function addActionMethod(
+  classDecl: ClassDeclaration,
+  propName: string,
+  action: ActionType,
+  framework: Framework,
+): void {
+  const pascal = toPascalCase(propName);
+  const needsValue = action === 'fill' || action === 'select';
+
+  if (framework === 'playwright') {
+    const body = buildPlaywrightActionBody(propName, action);
+    classDecl.addMethod({
+      isAsync: true,
+      name: `${action}${pascal}`,
+      parameters: needsValue ? [{ name: 'value', type: 'string' }] : [],
+      statements: [body],
+    });
+  } else {
+    // Cypress: getter method + action method
+    const getterName = `get${pascal}`;
+    const chainable = buildCypressChainable(action);
+
+    // Only add the getter if it doesn't already exist
+    const hasGetter = classDecl.getMethods().some(m => m.getName() === getterName);
+    if (!hasGetter) {
+      classDecl.addMethod({
+        name: getterName,
+        statements: [`return this.${propName};`],
+      });
+    }
+
+    classDecl.addMethod({
+      name: `${action}${pascal}`,
+      parameters: needsValue ? [{ name: 'value', type: 'string' }] : [],
+      statements: [`return this.${getterName}()${chainable};`],
+    });
+  }
+}
+
+function buildPlaywrightActionBody(propName: string, action: ActionType): string {
+  switch (action) {
+    case 'click':  return `await this.${propName}.click();`;
+    case 'fill':   return `await this.${propName}.fill(value);`;
+    case 'check':  return `await this.${propName}.check();`;
+    case 'select': return `await this.${propName}.selectOption(value);`;
+    case 'hover':  return `await this.${propName}.hover();`;
+    case 'focus':  return `await this.${propName}.focus();`;
+    case 'clear':  return `await this.${propName}.clear();`;
+  }
+}
+
+function buildCypressChainable(action: ActionType): string {
+  switch (action) {
+    case 'click':  return `.click()`;
+    case 'fill':   return `.clear().type(value)`;
+    case 'check':  return `.check()`;
+    case 'select': return `.select(value)`;
+    case 'hover':  return `.trigger('mouseover')`;
+    case 'focus':  return `.focus()`;
+    case 'clear':  return `.clear()`;
+  }
+}
+
+function toPascalCase(name: string): string {
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 // ── Locator expression builder ────────────────────────────────────────────────

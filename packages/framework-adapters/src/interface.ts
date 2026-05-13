@@ -1,4 +1,5 @@
-export type ActionType = 'click' | 'fill' | 'check' | 'select' | 'hover' | 'focus' | 'clear';
+export type { ActionType } from '@smartlocator/shared';
+import type { ActionType } from '@smartlocator/shared';
 
 export interface GeneratedCode {
   locatorProperty: string;
