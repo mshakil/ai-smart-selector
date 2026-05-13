@@ -1,14 +1,15 @@
-name: CI
+name: CI / CD
 
 on:
-  push:
-    branches: [main, master, standaloneNPMPackage]
   pull_request:
-    branches: [main, master]
+    branches: [master]
+    types: [opened, synchronize, reopened, closed]
 
 jobs:
-  ci:
+  # ── Validate: runs on every PR push, skipped on merge ────────────────────
+  validate:
     name: Build, Lint & Test
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
 
     steps:
@@ -35,3 +36,86 @@ jobs:
 
       - name: Run tests
         run: pnpm run test
+
+  # ── Publish: runs only when a PR is merged into master ───────────────────
+  publish:
+    name: Publish to npm & GitHub Release
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm run build
+
+      - name: Bundle extension into CLI package
+        run: node scripts/copy-extension.mjs
+        working-directory: apps/cli
+
+      - name: Check if version is already published
+        id: version_check
+        run: |
+          VERSION=$(node -p "require('./apps/cli/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          PUBLISHED=$(npm view smartlocator@$VERSION version 2>/dev/null || echo "")
+          if [ -n "$PUBLISHED" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already on npm — skipping publish."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "New version $VERSION — will publish."
+          fi
+
+      - name: Publish all packages to npm
+        if: steps.version_check.outputs.skip == 'false'
+        run: node scripts/publish-all.mjs --skip-build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Zip Chrome Extension
+        run: |
+          cd apps/extension/dist
+          zip -r "../../../smartlocator-extension-v${{ steps.version_check.outputs.version }}.zip" .
+
+      - name: Create GitHub Release
+        if: steps.version_check.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version_check.outputs.version }}
+          name: SmartLocator AI v${{ steps.version_check.outputs.version }}
+          generate_release_notes: true
+          files: smartlocator-extension-v${{ steps.version_check.outputs.version }}.zip
+          body: |
+            ## Install
+
+            **CLI (npm)**
+            ```bash
+            npm install -g smartlocator@${{ steps.version_check.outputs.version }}
+            ```
+
+            **Chrome Extension**
+            1. Download `smartlocator-extension-v${{ steps.version_check.outputs.version }}.zip` below
+            2. Unzip it to a folder
+            3. Open `chrome://extensions` → Enable Developer mode → Load unpacked → select that folder
+
+            Or, after installing the CLI:
+            ```bash
+            smartlocator install-extension
+            ```
