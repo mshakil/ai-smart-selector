@@ -1,15 +1,17 @@
 name: CI / CD
 
 on:
+  push:
+    branches: [master]
   pull_request:
     branches: [master]
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  # ── Validate: runs on every PR push, skipped on merge ────────────────────
+  # ── Validate: runs on every PR push and direct push to master ────────────
   validate:
     name: Build, Lint & Test
-    if: github.event.action != 'closed'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
@@ -37,10 +39,10 @@ jobs:
       - name: Run tests
         run: pnpm run test
 
-  # ── Publish: runs only when a PR is merged into master ───────────────────
+  # ── Publish: runs on direct push to master (PR merge or direct push) ─────
   publish:
     name: Publish to npm & GitHub Release
-    if: github.event.pull_request.merged == true
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: write
