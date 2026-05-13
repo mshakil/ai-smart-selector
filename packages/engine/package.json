@@ -1,6 +1,6 @@
 {
   "name": "@smartlocator/engine",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AST analysis, POM scanning, code generation and patch lifecycle for SmartLocator AI",
   "license": "MIT",
   "keywords": [
