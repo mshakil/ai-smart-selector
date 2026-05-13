@@ -10,6 +10,42 @@ AI-assisted selector intelligence for test automation engineers. SmartLocator AI
 - **Preview** a diff of the generated code before anything is written
 - **Apply or Undo** changes to your source files with one click
 
+## Quick Start (npm)
+
+```bash
+# Install globally
+npm install -g smartlocator
+
+# Start the agent inside your test repo
+cd /path/to/your/playwright-or-cypress-project
+smartlocator start
+
+# Get the Chrome extension path and load instructions
+smartlocator install-extension
+
+# Or copy the extension to a local folder first
+smartlocator install-extension --dest ./smartlocator-ext
+```
+
+**Loading the extension in Chrome:**
+1. Open `chrome://extensions`
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** → select the path printed by `install-extension`
+4. Press `Alt+C` on any page to start capturing
+
+## Commands
+
+```bash
+smartlocator start                                        # scan cwd, start agent on :3137
+smartlocator start --root /path/to/repo                  # explicit repo root
+smartlocator start --no-ai                               # heuristic-only, no AI API calls
+smartlocator install-extension                           # print bundled extension path
+smartlocator install-extension --dest ./ext              # copy extension to a folder
+smartlocator configure set --provider openai --key sk-... # set OpenAI key
+smartlocator configure set --provider claude --key sk-ant-... # set Claude key
+smartlocator configure show                              # show current config
+```
+
 ## Architecture
 
 ```
@@ -24,79 +60,25 @@ Background Service Worker  ──── WebSocket (ws://localhost:3137) ──�
                                                                    OpenAI / Claude AI provider
 ```
 
-## Monorepo Structure
+## Programmatic Use
 
-```
-ai-smart-selector/
-├── apps/
-│   ├── extension/          # Chrome Extension (React, Vite, Manifest V3)
-│   └── cli/                # Local Agent (Commander.js, WebSocket server)
-├── packages/
-│   ├── engine/             # AST analysis, POM scanning, code generation, patch lifecycle
-│   ├── ai-core/            # Heuristic scorer, OpenAI/Claude providers
-│   ├── shared/             # TypeScript types & WebSocket event contracts
-│   ├── framework-adapters/ # Playwright and Cypress code generators
-│   └── ui-kit/             # Shared React components (stub)
-├── pnpm-workspace.yaml
-├── turbo.json
-└── tsconfig.base.json
-```
-
-## Requirements
-
-- Node.js >= 18
-- pnpm >= 9
-- Google Chrome
-
-## Installation
+The engine and AI-core packages are published individually for teams that want to integrate SmartLocator into their own tooling:
 
 ```bash
-# Clone the repo
-git clone https://github.com/mshakil/ai-smart-selector.git
-cd ai-smart-selector
-
-# Install all workspace dependencies
-pnpm install
-
-# Build all packages
-pnpm run build
+npm install @smartlocator/engine @smartlocator/shared
 ```
 
-## Running the CLI Agent
-
-```bash
-# Start the agent (scans cwd for POM files, starts WebSocket on :3137)
-node apps/cli/dist/index.js start
-
-# Or with an explicit repo root
-node apps/cli/dist/index.js start --root /path/to/your/test-repo
-
-# Heuristic-only mode (no AI API calls)
-node apps/cli/dist/index.js start --no-ai
-
-# Configure an AI provider
-node apps/cli/dist/index.js configure set --provider openai --key sk-...
-node apps/cli/dist/index.js configure set --provider claude --key sk-ant-...
+```typescript
+import { scanRepository, PatchManager } from '@smartlocator/engine';
+import { generateHeuristicCandidates } from '@smartlocator/ai-core';
 ```
 
-## Loading the Chrome Extension
-
-1. Open Chrome and go to `chrome://extensions`
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked**
-4. Select the `apps/extension/dist` folder
-
-## Usage
-
-1. Start the CLI agent (see above)
-2. Navigate to the page you want to automate in Chrome
-3. Press `Alt+C` — the cursor changes to a crosshair
-4. Click any element on the page
-5. SmartLocator scores selector candidates and recommends the best POM file
-6. Enter a property name, select or confirm the target file, click **Generate Code**
-7. Review the diff in the **Patch Preview** panel
-8. Click **Apply** to write the locator to your source file, or **Reject** to discard
-9. Click **Undo** within 8 seconds to roll back the change
+| Package | Description |
+|---|---|
+| `@smartlocator/shared` | TypeScript types and WebSocket event contracts |
+| `@smartlocator/ai-core` | Heuristic scorer and OpenAI/Claude provider integrations |
+| `@smartlocator/engine` | AST analysis, POM scanning, code generation, patch lifecycle |
+| `@smartlocator/framework-adapters` | Playwright and Cypress locator generators |
 
 ## Selector Scoring
 
@@ -129,21 +111,12 @@ export default {
 } satisfies SmartLocatorProjectConfig;
 ```
 
-## Development
+## Framework Support
 
-```bash
-pnpm run dev        # Watch mode for all packages
-pnpm run lint       # Type-check all packages
-pnpm run test       # Run Vitest (ai-core, engine)
-pnpm run format     # Prettier across workspace
-```
-
-Run a single test file:
-
-```bash
-cd packages/ai-core && pnpm exec vitest run src/__tests__/heuristic.test.ts
-cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
-```
+| Framework | Locator style |
+|---|---|
+| Playwright | `page.getByTestId()`, `page.getByLabel()`, `page.locator()` as `readonly` properties |
+| Cypress | `cy.get()`, `cy.contains()` getter methods |
 
 ## Security
 
@@ -151,9 +124,44 @@ cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
 - File writes require explicit approval via the **Apply** button; the agent never auto-writes
 - The extension communicates with the local agent only over `ws://localhost:3137`
 
-## Framework Support
+## Install from Source
 
-| Framework | Locator style |
-|---|---|
-| Playwright | `page.getByTestId()`, `page.getByLabel()`, `page.locator()` as `readonly` properties |
-| Cypress | `cy.get()`, `cy.contains()` getter methods |
+```bash
+git clone https://github.com/mshakil/ai-smart-selector.git
+cd ai-smart-selector
+pnpm install
+pnpm run build
+node apps/cli/dist/index.js start
+```
+
+## Development
+
+```bash
+pnpm run dev              # watch mode for all packages
+pnpm run lint             # type-check all packages
+pnpm run test             # run Vitest (ai-core, engine)
+pnpm run format           # prettier across workspace
+pnpm run publish:dry-run  # simulate publishing all packages
+pnpm run version:bump 0.2.0  # bump version across all packages
+```
+
+## Monorepo Structure
+
+```
+ai-smart-selector/
+├── apps/
+│   ├── extension/          # Chrome Extension (React, Vite, Manifest V3)
+│   └── cli/                # Local Agent (Commander.js, WebSocket server)
+├── packages/
+│   ├── engine/             # AST analysis, POM scanning, code generation, patch lifecycle
+│   ├── ai-core/            # Heuristic scorer, OpenAI/Claude providers
+│   ├── shared/             # TypeScript types & WebSocket event contracts
+│   ├── framework-adapters/ # Playwright and Cypress code generators
+│   └── ui-kit/             # Shared React components (stub)
+├── scripts/
+│   ├── publish-all.mjs     # Publish all packages in dependency order
+│   └── bump-version.mjs    # Bump version across all packages
+├── pnpm-workspace.yaml
+├── turbo.json
+└── tsconfig.base.json
+```

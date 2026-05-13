@@ -25,7 +25,8 @@
   "files": [
     "dist/",
     "extension-dist/",
-    "scripts/postinstall.mjs"
+    "scripts/postinstall.mjs",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
