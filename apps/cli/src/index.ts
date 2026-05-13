@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { startCommand } from './commands/start.js';
 import { configureCommand } from './commands/configure.js';
+import { installExtensionCommand } from './commands/install-extension.js';
 
 const program = new Command()
   .name('smartlocator')
@@ -9,4 +10,5 @@ const program = new Command()
 
 program.addCommand(startCommand());
 program.addCommand(configureCommand());
+program.addCommand(installExtensionCommand());
 program.parse(process.argv);

@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **SmartLocator AI** is a Chrome Extension + Local CLI agent that helps test automation engineers capture DOM elements, generate robust selectors, and write Page Object Model code directly into their automation framework (Playwright/Cypress). It is explicitly **not** a traditional recorder — it is a selector intelligence and code architecture assistant.
 
-All four implementation phases are complete and the codebase is fully functional.
+All four implementation phases are complete and the codebase is fully functional. All packages are structured for npm distribution (`standaloneNPMPackage` branch).
 
 ## Monorepo Structure
 
@@ -14,13 +14,21 @@ All four implementation phases are complete and the codebase is fully functional
 ai-selector-extension/
 ├── apps/
 │   ├── extension/          # Chrome Extension (React 18, Vite, Manifest V3, Tailwind in Shadow DOM)
+│   │   └── dist/           # Built extension (gitignored in normal flow; committed via extension-dist/)
 │   └── cli/                # Node.js CLI & Local Agent (Commander.js, ws, tsup)
+│       ├── extension-dist/ # Pre-built extension bundled into the npm package (committed)
+│       └── scripts/
+│           ├── copy-extension.mjs   # Copies apps/extension/dist → extension-dist/ at build time
+│           └── postinstall.mjs      # Gets-started message shown after npm install -g
 ├── packages/
 │   ├── engine/             # ts-morph AST analysis, POM scanning, code generation, patch lifecycle
 │   ├── ai-core/            # Heuristic scorer, OpenAI/Claude providers, confidence formula
 │   ├── shared/             # TypeScript types + WebSocket event contracts (source of truth)
 │   ├── framework-adapters/ # IFrameworkAdapter: PlaywrightAdapter, CypressAdapter
 │   └── ui-kit/             # Reusable React/Tailwind components (stub, for future use)
+├── scripts/
+│   ├── publish-all.mjs     # Publish all packages in dependency order (supports --dry-run, --otp)
+│   └── bump-version.mjs    # Bump version across all package.json files + CLI .version() call
 ├── package.json            # pnpm workspaces + Turborepo root
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -31,7 +39,7 @@ ai-selector-extension/
 
 ```bash
 pnpm install             # install all workspace deps
-pnpm run build           # turbo build — all packages
+pnpm run build           # turbo build — all packages in dependency order
 pnpm run dev             # turbo dev — watch mode
 pnpm run lint            # turbo lint (tsc --noEmit across all packages)
 pnpm run test            # turbo test — runs Vitest in ai-core and engine
@@ -41,6 +49,15 @@ smartlocator start --root /path/to/repo   # explicit repo root
 smartlocator start --no-ai               # heuristic-only, no AI API calls
 smartlocator configure set --provider openai --key sk-...
 smartlocator configure show
+smartlocator install-extension           # print bundled extension path + Chrome steps
+smartlocator install-extension --dest ./ext  # copy extension to a local folder
+```
+
+**Publishing:**
+```bash
+pnpm run publish:dry-run          # simulate full publish without uploading
+pnpm run publish:packages         # publish all 5 packages to npm in dependency order
+pnpm run version:bump 0.2.0       # bump version in all package.json files + CLI entry
 ```
 
 **Running a single test file:**
@@ -54,15 +71,17 @@ cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
 ### Data flow
 
 1. User presses `ALT+C` on any page → Content Script enters capture mode (crosshair cursor)
-2. User clicks an element → `ELEMENT_CAPTURED` sent over WebSocket to CLI agent
-3. Agent runs heuristic scoring; calls AI only if top heuristic score < 85
-4. Agent scans the repo index for URL-matching POM files → `SELECTOR_CANDIDATES` returned
-5. Overlay UI shows ranked candidates + file recommendation; user picks candidate
-6. User enters element name + target file → `REQUEST_PATCH` sent
-7. Agent generates ts-morph AST insertion → diffs → stages patch → `PATCH_PREVIEW` returned
-8. Overlay shows colored diff; user clicks **Apply** → `APPROVE_PATCH` → file written
-9. `PATCH_APPLIED` returned → overlay shows "Applied! Undo" toast
-10. User can click **Undo** → `ROLLBACK_PATCH` → original source restored
+2. User clicks an element → Content Script sends `TO_AGENT / ELEMENT_CAPTURED` to Background SW via `chrome.runtime.sendMessage`
+3. Background SW forwards the event over its WebSocket connection to the CLI agent
+4. Agent runs heuristic scoring; calls AI only if top heuristic score < 85
+5. Agent scans the repo index for URL-matching POM files → `SELECTOR_CANDIDATES` returned over WebSocket
+6. Background SW broadcasts `FROM_AGENT` to all registered tabs → Overlay shows ranked candidates + file recommendation
+7. User enters element name + target file → `REQUEST_PATCH` sent through the same messaging chain
+8. Agent generates ts-morph AST insertion → diffs → stages patch → `PATCH_PREVIEW` returned
+9. Overlay shows colored diff; user clicks **Apply** → `APPROVE_PATCH` → file written
+10. `PATCH_APPLIED` returned → overlay shows "Applied! Undo" toast (8 s auto-dismiss)
+11. User can click **Undo** → `ROLLBACK_PATCH` → original source restored
+12. User can click **✕** on any panel to dismiss the overlay without taking action
 
 ### WebSocket events (packages/shared/src/events/websocket.ts)
 
@@ -94,7 +113,8 @@ AI is invoked only when the top heuristic score < `HEURISTIC_AI_THRESHOLD` (85).
 
 ### CLI agent (apps/cli/src/)
 
-- `commands/start.ts` — loads AI provider, scans repo with project config, creates `PatchManager`, starts WS server
+- `commands/start.ts` — loads AI provider, scans repo, creates `PatchManager`, starts WS server; on `listening` detects whether `extension-dist/` is present (npm install) and prints the bundled extension path with Chrome load steps, or falls back to the dev path
+- `commands/install-extension.ts` — resolves `extension-dist/` relative to `dist/index.js` via `import.meta.url`; prints path + Chrome instructions; `--dest <path>` copies the files to a user-specified directory
 - `server/agent.ts` — `AgentDependencies { aiProvider?, repoIndex, patchManager, framework }` dispatches all WS events
 - `server/handlers/element-capture.ts` — runs heuristics + optional AI (1500 ms timeout); logs wall-clock time; warns if > 2 s
 - `server/handlers/request-patch.ts` — stages patch, derives class name from file path, sends `PATCH_PREVIEW`
@@ -103,10 +123,11 @@ AI is invoked only when the top heuristic score < `HEURISTIC_AI_THRESHOLD` (85).
 
 ### Extension (apps/extension/src/)
 
-- `content/index.ts` — keyboard/mouse capture, WebSocket with exponential backoff reconnect, routes all server events
+- `background/service-worker.ts` — owns the WebSocket connection to the CLI agent; handles reconnect with exponential backoff; maintains a set of registered tab IDs and broadcasts `FROM_AGENT` / `WS_STATUS` messages via `chrome.tabs.sendMessage`; kept alive by a `chrome.alarms` ticker every 0.4 min
+- `content/index.ts` — keyboard/mouse capture; registers with the background via `chrome.runtime.sendMessage({ type: 'CONTENT_READY' })`; sends agent events as `TO_AGENT` messages and receives `FROM_AGENT` / `WS_STATUS` messages from the background; routes server events to the overlay
 - `content/capture.ts` — extracts `data-testid`, `data-qa`, `aria-label`, `role`, `type`, `placeholder`, parent hierarchy (4 levels), iframe/shadow context
 - `content/overlay-host.ts` — creates `div#__smartlocator__` → Shadow DOM → injects Tailwind CSS → mounts React
-- `overlay/App.tsx` — `CandidatesPanel` (selectable rows, Generate Code form, file picker), `PatchPreviewPanel` (colored diff, Apply/Reject), `PatchAppliedToast` (8 s auto-dismiss, Undo button)
+- `overlay/App.tsx` — `CandidatesPanel` (selectable rows, ✕ close button, Generate Code form, file picker), `PatchPreviewPanel` (colored diff, ✕ close button, Apply/Reject), `PatchAppliedToast` (8 s auto-dismiss, Undo button); `OverlayCallbacks` includes `onClose`
 - `overlay/store.ts` — discriminated union: `idle | capture-ready | disconnected | error | candidates | patch-preview | patch-applied`
 
 ### Framework adapters (packages/framework-adapters/src/)
@@ -115,10 +136,37 @@ AI is invoked only when the top heuristic score < `HEURISTIC_AI_THRESHOLD` (85).
 `PlaywrightAdapter` emits `page.getByTestId()` / `page.getByLabel()` / `page.locator()` with `readonly` property.  
 `CypressAdapter` emits `cy.get()` / `cy.contains()` getter methods.
 
+## npm Package Distribution
+
+All five publishable packages are on the `standaloneNPMPackage` branch:
+
+| Package | npm name | `private` | Build |
+|---|---|---|---|
+| CLI agent | `smartlocator` | no | tsup (`build:all` also copies extension) |
+| Shared types | `@smartlocator/shared` | no | tsup |
+| AI providers | `@smartlocator/ai-core` | no | tsup (peers: openai, @anthropic-ai/sdk) |
+| Engine | `@smartlocator/engine` | no | tsup |
+| Framework adapters | `@smartlocator/framework-adapters` | no | tsup |
+
+**CLI `apps/cli/package.json` key fields:**
+- `"files": ["dist/", "extension-dist/", "scripts/postinstall.mjs", "README.md"]`
+- `"build:all"`: builds extension → `copy-extension.mjs` → tsup; run before publishing
+- `"prepublishOnly": "pnpm run build:all"` — auto-runs on `npm publish`
+- `"postinstall": "node scripts/postinstall.mjs"` — prints getting-started steps; skips in monorepo context
+
+**Sub-package tsup externals:** `@smartlocator/shared` is external in all dependents; `@anthropic-ai/sdk` and `openai` are external in `ai-core`. The CLI's tsup uses `noExternal: [/^@smartlocator\//]` to bundle everything into one file.
+
+**Publish workflow:**
+```bash
+pnpm run version:bump 0.2.0    # update all versions
+pnpm run publish:dry-run       # verify
+pnpm run publish:packages      # ship: shared → framework-adapters → ai-core → engine → smartlocator
+```
+
 ## Key Conventions
 
 - **`moduleResolution: bundler`** everywhere — no `.js` extension on relative imports
-- **`noExternal: [/^@smartlocator\//]`** in `apps/cli/tsup.config.ts` — workspace packages are bundled at build; npm deps stay external
+- **`noExternal: [/^@smartlocator\//]`** in `apps/cli/tsup.config.ts` — workspace packages are bundled at CLI build; npm deps stay external
 - **Shadow DOM Tailwind**: imported via `?inline` CSS import; `preflight: false` in `tailwind.config.js` (no global reset)
 - Tailwind palette is Catppuccin Mocha — use tokens: `surface`, `crust`, `overlay`, `border`, `muted`, `text`, `green`, `blue`, `red`, `yellow` etc.
 - **ts-morph code generation**: always use `classDecl.addProperty()` / `insertProperty()` — never string concatenation

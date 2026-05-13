@@ -1,0 +1,146 @@
+name: Publish
+
+# Triggered by pushing a version tag: git tag v0.2.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  # ── 1. Publish npm packages ───────────────────────────────────────────────
+  publish-npm:
+    name: Publish npm packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # registry-url writes //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+      # into the project .npmrc so pnpm publish picks it up automatically.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages + bundle extension into CLI
+        run: pnpm run build
+
+      - name: Bundle extension into CLI package
+        run: node scripts/copy-extension.mjs
+        working-directory: apps/cli
+
+      - name: Publish all packages to npm
+        run: node scripts/publish-all.mjs --skip-build
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── 2. Build extension zip + create GitHub Release ───────────────────────
+  github-release:
+    name: GitHub Release + Extension zip
+    runs-on: ubuntu-latest
+    needs: publish-npm
+    if: always()   # run even if npm publish failed
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm run build
+
+      - name: Zip Chrome Extension
+        run: |
+          cd apps/extension/dist
+          zip -r "../../../smartlocator-extension-${{ github.ref_name }}.zip" .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: SmartLocator AI ${{ github.ref_name }}
+          generate_release_notes: true
+          files: smartlocator-extension-${{ github.ref_name }}.zip
+          body: |
+            ## Install
+
+            **CLI (npm)**
+            ```bash
+            npm install -g smartlocator
+            ```
+
+            **Chrome Extension**
+            1. Download `smartlocator-extension-${{ github.ref_name }}.zip` below
+            2. Unzip it to a folder
+            3. Open `chrome://extensions` → Enable Developer mode → Load unpacked → select that folder
+
+            Or, after installing the CLI:
+            ```bash
+            smartlocator install-extension
+            ```
+
+  # ── 3. Chrome Web Store (optional — only runs if secrets are configured) ──
+  publish-cws:
+    name: Publish to Chrome Web Store
+    runs-on: ubuntu-latest
+    needs: github-release
+    # Only runs when CWS_EXTENSION_ID is set as a repo variable.
+    # Add it in: Settings → Variables → Actions → New repository variable
+    # Add secrets in: Settings → Secrets → Actions
+    if: vars.CWS_EXTENSION_ID != ''
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm run build
+
+      - name: Zip extension for CWS
+        run: |
+          cd apps/extension/dist
+          zip -r ../../../extension.zip .
+
+      - name: Upload to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v5.0.0
+        with:
+          file-path: extension.zip
+          extension-id: ${{ vars.CWS_EXTENSION_ID }}
+          client-id: ${{ secrets.CWS_CLIENT_ID }}
+          client-secret: ${{ secrets.CWS_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CWS_REFRESH_TOKEN }}
+          publish: true

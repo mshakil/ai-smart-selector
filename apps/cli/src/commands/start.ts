@@ -1,5 +1,8 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
+import { existsSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { startAgent, WS_PORT } from '../server/agent.js';
 import { initRepository } from '../server/repository.js';
 import { loadConfig, getActiveApiKey } from '../config.js';
@@ -54,11 +57,30 @@ export function startCommand(): Command {
       });
 
       wss.on('listening', () => {
-        console.log(chalk.green(`\nAgent listening on ws://localhost:${WS_PORT}\n`));
-        console.log(chalk.gray('Load the extension: chrome://extensions → Load unpacked → apps/extension/dist'));
-        console.log(chalk.gray('Press ALT+C on any page to capture an element.'));
-        console.log(chalk.gray('Logs: ~/.smartlocator/logs.log'));
-        console.log(chalk.gray('\nCtrl+C to stop.\n'));
+        // Detect whether we're running from an npm-installed package (has extension-dist/)
+        // or from the monorepo dev environment (extension is at apps/extension/dist).
+        const here = dirname(fileURLToPath(import.meta.url));
+        const bundledExt = resolve(here, '..', 'extension-dist');
+        const isNpmInstall = existsSync(bundledExt);
+
+        console.log(chalk.green(`\n  Agent listening on ws://localhost:${WS_PORT}\n`));
+
+        if (isNpmInstall) {
+          console.log(chalk.bold('  Chrome Extension'));
+          console.log(chalk.white(`  ${bundledExt}\n`));
+          console.log(chalk.gray('  Load in Chrome:'));
+          console.log(chalk.gray('    1. Open  chrome://extensions'));
+          console.log(chalk.gray('    2. Enable Developer mode'));
+          console.log(chalk.gray('    3. Click  Load unpacked → select path above'));
+          console.log(chalk.gray('\n  Or copy to a custom folder first:'));
+          console.log(chalk.gray('    smartlocator install-extension --dest ./smartlocator-ext'));
+        } else {
+          console.log(chalk.gray('  Extension: chrome://extensions → Load unpacked → apps/extension/dist'));
+        }
+
+        console.log(chalk.gray('\n  Press ALT+C on any page to capture an element.'));
+        console.log(chalk.gray('  Logs: ~/.smartlocator/logs.log'));
+        console.log(chalk.gray('\n  Ctrl+C to stop.\n'));
       });
 
       process.on('SIGINT', () => {

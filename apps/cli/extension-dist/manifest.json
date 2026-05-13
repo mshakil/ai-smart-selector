@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "SmartLocator AI",
+  "version": "0.1.0",
+  "description": "AI-assisted selector intelligence for test automation engineers",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "clipboardWrite",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:3137/"
+  ],
+  "background": {
+    "service_worker": "service-worker-loader.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "js": [
+        "assets/index.ts-B9d6jca7.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "SmartLocator AI"
+  },
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "assets/index.ts-B9d6jca7.js",
+        "assets/index.ts-B9d6jca7.js.map"
+      ],
+      "use_dynamic_url": false
+    }
+  ]
+}
