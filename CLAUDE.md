@@ -54,15 +54,17 @@ cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
 ### Data flow
 
 1. User presses `ALT+C` on any page → Content Script enters capture mode (crosshair cursor)
-2. User clicks an element → `ELEMENT_CAPTURED` sent over WebSocket to CLI agent
-3. Agent runs heuristic scoring; calls AI only if top heuristic score < 85
-4. Agent scans the repo index for URL-matching POM files → `SELECTOR_CANDIDATES` returned
-5. Overlay UI shows ranked candidates + file recommendation; user picks candidate
-6. User enters element name + target file → `REQUEST_PATCH` sent
-7. Agent generates ts-morph AST insertion → diffs → stages patch → `PATCH_PREVIEW` returned
-8. Overlay shows colored diff; user clicks **Apply** → `APPROVE_PATCH` → file written
-9. `PATCH_APPLIED` returned → overlay shows "Applied! Undo" toast
-10. User can click **Undo** → `ROLLBACK_PATCH` → original source restored
+2. User clicks an element → Content Script sends `TO_AGENT / ELEMENT_CAPTURED` to Background SW via `chrome.runtime.sendMessage`
+3. Background SW forwards the event over its WebSocket connection to the CLI agent
+4. Agent runs heuristic scoring; calls AI only if top heuristic score < 85
+5. Agent scans the repo index for URL-matching POM files → `SELECTOR_CANDIDATES` returned over WebSocket
+6. Background SW broadcasts `FROM_AGENT` to all registered tabs → Overlay shows ranked candidates + file recommendation
+7. User enters element name + target file → `REQUEST_PATCH` sent through the same messaging chain
+8. Agent generates ts-morph AST insertion → diffs → stages patch → `PATCH_PREVIEW` returned
+9. Overlay shows colored diff; user clicks **Apply** → `APPROVE_PATCH` → file written
+10. `PATCH_APPLIED` returned → overlay shows "Applied! Undo" toast (8 s auto-dismiss)
+11. User can click **Undo** → `ROLLBACK_PATCH` → original source restored
+12. User can click **✕** on any panel to dismiss the overlay without taking action
 
 ### WebSocket events (packages/shared/src/events/websocket.ts)
 
@@ -103,10 +105,11 @@ AI is invoked only when the top heuristic score < `HEURISTIC_AI_THRESHOLD` (85).
 
 ### Extension (apps/extension/src/)
 
-- `content/index.ts` — keyboard/mouse capture, WebSocket with exponential backoff reconnect, routes all server events
+- `background/service-worker.ts` — owns the WebSocket connection to the CLI agent; handles reconnect with exponential backoff; maintains a set of registered tab IDs and broadcasts `FROM_AGENT` / `WS_STATUS` messages via `chrome.tabs.sendMessage`; kept alive by a `chrome.alarms` ticker every 0.4 min
+- `content/index.ts` — keyboard/mouse capture; registers with the background via `chrome.runtime.sendMessage({ type: 'CONTENT_READY' })`; sends agent events as `TO_AGENT` messages and receives `FROM_AGENT` / `WS_STATUS` messages from the background; routes server events to the overlay
 - `content/capture.ts` — extracts `data-testid`, `data-qa`, `aria-label`, `role`, `type`, `placeholder`, parent hierarchy (4 levels), iframe/shadow context
 - `content/overlay-host.ts` — creates `div#__smartlocator__` → Shadow DOM → injects Tailwind CSS → mounts React
-- `overlay/App.tsx` — `CandidatesPanel` (selectable rows, Generate Code form, file picker), `PatchPreviewPanel` (colored diff, Apply/Reject), `PatchAppliedToast` (8 s auto-dismiss, Undo button)
+- `overlay/App.tsx` — `CandidatesPanel` (selectable rows, ✕ close button, Generate Code form, file picker), `PatchPreviewPanel` (colored diff, ✕ close button, Apply/Reject), `PatchAppliedToast` (8 s auto-dismiss, Undo button); `OverlayCallbacks` includes `onClose`
 - `overlay/store.ts` — discriminated union: `idle | capture-ready | disconnected | error | candidates | patch-preview | patch-applied`
 
 ### Framework adapters (packages/framework-adapters/src/)
