@@ -51,10 +51,11 @@ smartlocator install-extension --dest ./smartlocator-ext
 
 1. Navigate to any page in Chrome
 2. Press **`Alt+C`** — the cursor becomes a crosshair
-3. Click any element
-4. SmartLocator scores selectors, recommends a POM file, and previews the generated code
-5. Enter an element name → click **Apply** — the locator is written into your source file
-6. Click **Undo** within 8 seconds to revert
+3. Click any element — a **3-step overlay** appears
+4. **Step 1 – Select**: choose the best ranked selector from the candidates list
+5. **Step 2 – Configure**: enter a property name, choose an action type (click / fill / check / select / hover / focus / clear), and confirm the target POM file — a live preview shows the method signature that will be generated
+6. **Step 3 – Preview**: review the coloured diff showing both the locator property and the action method → click **Apply**
+7. Click **Undo** within 8 seconds to revert the file to its original state
 
 ---
 
@@ -110,8 +111,8 @@ Background Service Worker  ──── WebSocket (ws://localhost:3137) ──�
 1. `Alt+C` + click → element HTML captured in the browser
 2. CLI scores selectors with heuristics (+ optional AI)
 3. CLI scans your repo and recommends the best matching POM file
-4. You name the element → CLI generates and previews the locator code
-5. You click **Apply** → the locator is inserted into the file via AST (no string concat)
+4. You choose a selector, name the element, and pick an action type → CLI detects the POM convention (property-style or constructor-style) and generates both a locator property and an action method
+5. You click **Apply** → both are inserted into the file via AST (no string concat)
 6. **Undo** restores the original file within 8 seconds
 
 ---
@@ -137,12 +138,42 @@ Tailwind utility classes, hashed class names, and dynamic IDs are ignored automa
 
 ## Framework Support
 
-| Framework | Generated locator style |
-|---|---|
-| Playwright | `readonly loginButton = page.getByTestId('login-btn')` |
-| Cypress | `get loginButton() { return cy.get('[data-testid="login-btn"]') }` |
+Both a **locator property** and an **action method** are generated for every captured element. The code-generator detects whether the class uses property-style or constructor-style locators and matches the convention automatically.
 
-Framework is detected automatically from your `package.json`.
+**Playwright (property-style)**
+```typescript
+readonly loginButton = this.page.getByTestId('login-btn');
+
+async clickLoginButton() {
+  await this.loginButton.click();
+}
+```
+
+**Playwright (constructor-style)**
+```typescript
+loginButton: Locator;
+
+constructor(page: Page) {
+  this.loginButton = page.getByTestId('login-btn');
+}
+
+async clickLoginButton() {
+  await this.loginButton.click();
+}
+```
+
+**Cypress**
+```typescript
+getLoginButton() {
+  return cy.get('[data-testid="login-btn"]');
+}
+
+clickLoginButton() {
+  return this.getLoginButton().click();
+}
+```
+
+Framework is detected automatically from your `package.json`. Action type is selected in the overlay (click / fill / check / select / hover / focus / clear); `fill` and `select` actions include a `value: string` parameter.
 
 ---
 

@@ -31,7 +31,7 @@ smartlocator install-extension --dest ./smartlocator-ext
 1. Open `chrome://extensions`
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** → select the path printed by `install-extension`
-4. Press `Alt+C` on any page to start capturing
+4. Press `Alt+C` on any page, click an element → a **3-step overlay** appears: Select a selector → Configure the element name and action type → Preview and Apply the generated code
 
 ## Commands
 
@@ -113,10 +113,12 @@ export default {
 
 ## Framework Support
 
-| Framework | Locator style |
-|---|---|
-| Playwright | `page.getByTestId()`, `page.getByLabel()`, `page.locator()` as `readonly` properties |
-| Cypress | `cy.get()`, `cy.contains()` getter methods |
+Both a **locator property** and an **action method** are generated and inserted into your POM class. The code-generator detects whether the existing class uses property-style or constructor-style locators and matches the convention automatically.
+
+| Framework | Locator property | Action method |
+|---|---|---|
+| Playwright | `readonly loginButton = page.getByTestId('login-btn')` | `async clickLoginButton() { await this.loginButton.click(); }` |
+| Cypress | `get loginButton() { return cy.get('[data-testid="login-btn"]') }` | `clickLoginButton() { return this.getLoginButton().click(); }` |
 
 ## Security
 
