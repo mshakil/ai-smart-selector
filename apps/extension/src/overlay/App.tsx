@@ -135,7 +135,9 @@ function CandidatesPanel({
   const [expandedIdx, setExpanded] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [elementName, setElementName] = useState('');
-  const [targetFile, setTargetFile] = useState(payload.targetFileRecommendation);
+  const [targetFile, setTargetFile] = useState(
+    payload.targetFileRecommendation || payload.availableFiles[0] || ''
+  );
   const [selectedIdx, setSelectedIdx] = useState(0);
 
   const all = [payload.primary, ...payload.fallbacks];
