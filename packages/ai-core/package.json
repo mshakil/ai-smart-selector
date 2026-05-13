@@ -1,17 +1,29 @@
 {
   "name": "@smartlocator/ai-core",
   "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "exports": {
-    ".": "./src/index.ts"
+  "description": "Heuristic scorer and AI provider integrations (OpenAI, Claude) for SmartLocator AI",
+  "license": "MIT",
+  "keywords": ["smartlocator", "ai", "openai", "claude", "selector", "test-automation"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mshakil/ai-smart-selector.git",
+    "directory": "packages/ai-core"
   },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist/"],
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "tsup",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
     "@smartlocator/shared": "workspace:*"
@@ -25,7 +37,11 @@
     "openai": { "optional": true }
   },
   "devDependencies": {
+    "tsup": "^8.1.0",
     "typescript": "^5.4.5",
     "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
