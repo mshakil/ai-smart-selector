@@ -3,7 +3,14 @@
   "version": "0.1.0",
   "description": "Heuristic scorer and AI provider integrations (OpenAI, Claude) for SmartLocator AI",
   "license": "MIT",
-  "keywords": ["smartlocator", "ai", "openai", "claude", "selector", "test-automation"],
+  "keywords": [
+    "smartlocator",
+    "ai",
+    "openai",
+    "claude",
+    "selector",
+    "test-automation"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/mshakil/ai-smart-selector.git",
@@ -18,7 +25,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/"],
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",
@@ -33,8 +42,12 @@
     "openai": "^4.52.0"
   },
   "peerDependenciesMeta": {
-    "@anthropic-ai/sdk": { "optional": true },
-    "openai": { "optional": true }
+    "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "openai": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "tsup": "^8.1.0",

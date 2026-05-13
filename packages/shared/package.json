@@ -3,7 +3,11 @@
   "version": "0.1.0",
   "description": "Shared TypeScript types and WebSocket event contracts for SmartLocator AI",
   "license": "MIT",
-  "keywords": ["smartlocator", "test-automation", "types"],
+  "keywords": [
+    "smartlocator",
+    "test-automation",
+    "types"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/mshakil/ai-smart-selector.git",
@@ -18,7 +22,9 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "files": ["dist/"],
+  "files": [
+    "dist/"
+  ],
   "scripts": {
     "build": "tsup",
     "lint": "tsc --noEmit",
