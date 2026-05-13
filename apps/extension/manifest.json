@@ -3,7 +3,7 @@
   "name": "SmartLocator AI",
   "version": "0.1.0",
   "description": "AI-assisted selector intelligence for test automation engineers",
-  "permissions": ["activeTab", "storage", "clipboardWrite"],
+  "permissions": ["activeTab", "storage", "clipboardWrite", "alarms"],
   "host_permissions": ["http://localhost:3137/"],
   "background": {
     "service_worker": "src/background/service-worker.ts",

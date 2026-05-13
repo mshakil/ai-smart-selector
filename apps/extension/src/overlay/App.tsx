@@ -7,6 +7,7 @@ export interface OverlayCallbacks {
   onApprovePatch: (patchId: string) => void;
   onRejectPatch: (patchId: string) => void;
   onRollbackPatch: (patchId: string) => void;
+  onClose: () => void;
 }
 
 interface Props {
@@ -14,21 +15,27 @@ interface Props {
   callbacks: OverlayCallbacks;
 }
 
+const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+
 export function OverlayApp({ state, callbacks }: Props) {
   if (state.type === 'idle') return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[2147483647] max-w-[480px] w-full pointer-events-auto"
-         style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      {state.type === 'capture-ready' && (
-        <Toast color="bg-blue-500" text="SmartLocator: click an element (ESC to cancel)" />
-      )}
-      {state.type === 'disconnected' && (
-        <Toast color="bg-red-500" text={state.message ?? 'Agent not running — run: smartlocator start'} />
-      )}
-      {state.type === 'error' && (
-        <Toast color="bg-yellow-500" text={state.message ?? 'Unknown error'} />
-      )}
+    <div
+      style={{
+        position: 'fixed',
+        top: '16px',
+        right: '16px',
+        zIndex: 2147483647,
+        maxWidth: '400px',
+        width: '100%',
+        pointerEvents: 'auto',
+        fontFamily: FONT,
+      }}
+    >
+      {state.type === 'capture-ready' && <CaptureReadyToast />}
+      {state.type === 'disconnected' && <DisconnectedToast message={state.message} />}
+      {state.type === 'error' && <ErrorToast message={state.message} />}
       {state.type === 'candidates' && (
         <CandidatesPanel payload={state.candidates} callbacks={callbacks} />
       )}
@@ -42,13 +49,76 @@ export function OverlayApp({ state, callbacks }: Props) {
   );
 }
 
-// ── Toast ──────────────────────────────────────────────────────────────────────
+// ── Status toasts ─────────────────────────────────────────────────────────────
 
-function Toast({ color, text }: { color: string; text: string }) {
+function StatusCard({
+  accent,
+  icon,
+  title,
+  body,
+}: {
+  accent: string;
+  icon: string;
+  title: string;
+  body?: string;
+}) {
   return (
-    <div className={`${color} rounded-lg px-4 py-2.5 shadow-xl`}>
-      <span className="text-white font-medium text-xs">{text}</span>
+    <div style={{
+      background: '#1e1e2e',
+      border: `1px solid ${accent}`,
+      borderLeft: `4px solid ${accent}`,
+      borderRadius: '10px',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+      padding: '12px 16px',
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: '10px',
+    }}>
+      <span style={{ fontSize: '16px', lineHeight: 1, marginTop: '1px', flexShrink: 0 }}>{icon}</span>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: accent, fontSize: '12px', fontWeight: 700, letterSpacing: '0.02em' }}>
+          {title}
+        </div>
+        {body && (
+          <div style={{ color: '#a6adc8', fontSize: '11px', marginTop: '3px', lineHeight: 1.5 }}>
+            {body}
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function CaptureReadyToast() {
+  return (
+    <StatusCard
+      accent="#89b4fa"
+      icon="⊕"
+      title="Click any element to capture"
+      body="Press ESC to cancel"
+    />
+  );
+}
+
+function DisconnectedToast({ message }: { message?: string }) {
+  return (
+    <StatusCard
+      accent="#f38ba8"
+      icon="⚠"
+      title="Agent not connected"
+      body={message ?? 'Run:  node apps/cli/dist/index.js start'}
+    />
+  );
+}
+
+function ErrorToast({ message }: { message?: string }) {
+  return (
+    <StatusCard
+      accent="#f9e2af"
+      icon="✕"
+      title="Error"
+      body={message ?? 'Something went wrong'}
+    />
   );
 }
 
@@ -96,7 +166,16 @@ function CandidatesPanel({
             <span className="bg-blue/20 text-blue rounded px-1.5 py-0.5 text-[10px] font-bold">AI</span>
           )}
         </div>
-        <span className="text-muted text-xs">{all.length} candidates · ESC to close</span>
+        <div className="flex items-center gap-2">
+          <span className="text-muted text-xs">{all.length} candidates</span>
+          <button
+            className="text-muted hover:text-text transition-colors text-sm leading-none"
+            onClick={callbacks.onClose}
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Candidate rows */}
@@ -346,6 +425,13 @@ function PatchPreviewPanel({
           <span className="text-green">+{patch.additions}</span>
           <span className="text-red">-{patch.deletions}</span>
           <span className="text-muted">{patch.targetFile}</span>
+          <button
+            className="text-muted hover:text-text transition-colors text-sm leading-none ml-1"
+            onClick={callbacks.onClose}
+            title="Close"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
