@@ -1,16 +1,40 @@
 {
   "name": "smartlocator",
   "version": "0.1.0",
-  "private": true,
+  "description": "AI-assisted selector intelligence for test automation engineers — capture elements, generate robust selectors, write POM code directly from the browser",
+  "license": "MIT",
+  "keywords": [
+    "test-automation",
+    "playwright",
+    "cypress",
+    "selector",
+    "locator",
+    "page-object-model",
+    "ai",
+    "chrome-extension"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mshakil/ai-smart-selector.git"
+  },
+  "homepage": "https://github.com/mshakil/ai-smart-selector#readme",
   "type": "module",
   "bin": {
     "smartlocator": "./dist/index.js"
   },
+  "files": [
+    "dist/",
+    "extension-dist/",
+    "scripts/postinstall.mjs"
+  ],
   "scripts": {
     "build": "tsup",
+    "build:all": "pnpm --filter smartlocator-extension build && node scripts/copy-extension.mjs && tsup",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build:all",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "dependencies": {
     "@smartlocator/shared": "workspace:*",
@@ -33,5 +57,8 @@
     "tsup": "^8.1.0",
     "tsx": "^4.15.0",
     "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
