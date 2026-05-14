@@ -1,6 +1,6 @@
 {
   "name": "@smartlocator/shared",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Shared TypeScript types and WebSocket event contracts for SmartLocator AI",
   "license": "MIT",
   "keywords": [

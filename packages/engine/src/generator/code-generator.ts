@@ -212,6 +212,7 @@ function buildPlaywrightActionBody(propName: string, action: ActionType): string
     case 'hover':  return `await this.${propName}.hover();`;
     case 'focus':  return `await this.${propName}.focus();`;
     case 'clear':  return `await this.${propName}.clear();`;
+    default:       throw new Error(`Unsupported action type: ${action}`);
   }
 }
 
@@ -224,6 +225,7 @@ function buildCypressChainable(action: ActionType): string {
     case 'hover':  return `.trigger('mouseover')`;
     case 'focus':  return `.focus()`;
     case 'clear':  return `.clear()`;
+    default:       throw new Error(`Unsupported action type: ${action}`);
   }
 }
 

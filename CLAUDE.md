@@ -29,6 +29,14 @@ ai-selector-extension/
 ├── scripts/
 │   ├── publish-all.mjs     # Publish all packages in dependency order (supports --dry-run, --otp)
 │   └── bump-version.mjs    # Bump version across all package.json files + CLI .version() call
+├── .claude/
+│   ├── agents/
+│   │   ├── senior-architect-reviewer.md  # @senior-architect-reviewer — architectural code review
+│   │   ├── changelog.md                  # @changelog <version> — generate CHANGELOG.md entry from git log
+│   │   └── test-stub.md                  # @test-stub <pom-file> — generate Playwright/Cypress test stub after a patch
+│   └── commands/
+│       ├── release.md      # /release <version|patch|minor|major> — full release workflow
+│       └── docs-sync.md    # /docs-sync [ref] — sync CLAUDE.md + README.md to code
 ├── package.json            # pnpm workspaces + Turborepo root
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -64,6 +72,15 @@ pnpm run version:bump 0.2.0       # bump version in all package.json files + CLI
 ```bash
 cd packages/ai-core && pnpm exec vitest run src/__tests__/heuristic.test.ts
 cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
+```
+
+**Claude Code slash commands** (invoke inside Claude Code chat):
+```
+/release 0.2.0          # bump all versions, lint+test gate, dry-run preview, merge dev→master, push
+/release patch          # auto-calculates next patch version from apps/cli/package.json
+/release minor          # auto-calculates next minor version
+/docs-sync              # diff since last git tag, update stale CLAUDE.md + README.md sections, commit
+/docs-sync v0.1.3       # diff from a specific tag or commit ref
 ```
 
 ## Architecture
@@ -108,7 +125,7 @@ AI is invoked only when the top heuristic score < `HEURISTIC_AI_THRESHOLD` (85).
 - `analyzer/pom-parser.ts` — ts-morph extracts class names, existing locator properties (both property-style initializers and constructor-style `this.x = locator()` assignments), route hints; uses shared read-only Project singleton (`ts-project.ts`)
 - `analyzer/repository-index.ts` — in-memory index; chokidar watches for incremental updates with 150ms debounce per file and atomic array swap (collect new entries before replacing) to avoid race conditions
 - `mapper/page-mapper.ts` — scores POM files against current URL via route hint matching
-- `generator/ts-project.ts` — shared ts-morph Project singleton; `getReadOnlyProject()` for pom-parser + duplicate-checker (refreshes from disk on each call), `makeFreshProject()` for code-generator (isolated per mutation)
+- `generator/ts-project.ts` — shared ts-morph Project singleton; `getReadOnlyProject()` for pom-parser + duplicate-checker (callers call `refreshFromFileSystemSync()` per source file before each read), `makeFreshProject()` for code-generator (isolated per mutation)
 - `generator/code-generator.ts` — detects POM convention (property-style vs constructor-style) then inserts both a locator property and an action method via ts-morph AST (never string concat); for constructor-style also auto-imports `Locator` from `@playwright/test`; all AST mutations wrapped in try-catch
 - `generator/duplicate-checker.ts` — pre-flight check before staging any patch; uses shared read-only Project singleton
 - `patch/patch-manager.ts` — stage → apply (writes to disk + history) → rollback (restores original); history capped at 20; patch IDs use `crypto.randomUUID()`
@@ -193,7 +210,7 @@ pnpm run publish:packages      # ship: shared → framework-adapters → ai-core
 - Chrome Extension communicates with the Local Agent only via localhost WebSocket (`ws://localhost:3137`)
 - WebSocket server rejects connections whose `Origin` header is not a `chrome-extension://` URL; set `SMARTLOCATOR_DEBUG=1` to bypass during development
 - `targetFile` from the client is resolved and validated against `repoIndex.rootDir` before any file I/O — path traversal attempts are rejected with an `INVALID_PATH` error
-- AI API keys are stored in `~/.smartlocator/config.json` with `chmod 0o600` (Unix only); only the captured HTML snippet is ever sent to the AI
+- AI API keys are stored in `~/.smartlocator/config.json` with `chmod 0o600` (Unix only); `SMARTLOCATOR_OPENAI_KEY` and `SMARTLOCATOR_CLAUDE_KEY` env vars override the config file (useful in CI or for ephemeral credentials); only the captured HTML snippet is ever sent to the AI
 
 ## Plugin Architecture
 

@@ -1,6 +1,6 @@
 {
   "name": "@smartlocator/ai-core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Heuristic scorer and AI provider integrations (OpenAI, Claude) for SmartLocator AI",
   "license": "MIT",
   "keywords": [

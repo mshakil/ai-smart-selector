@@ -30,6 +30,7 @@ Group the output by subsystem using this map:
 | `packages/engine/src/generator/` | Repository analyzer (generator subsection) |
 | `packages/engine/src/patch/` | Repository analyzer (patch-manager) |
 | `packages/engine/src/config/` | Plugin Architecture |
+| `packages/engine/src/mapper/` | Repository analyzer (page-mapper) |
 | `packages/engine/src/` (other) | Repository analyzer |
 | `packages/ai-core/src/` | Selector scoring / Confidence formula |
 | `packages/framework-adapters/src/` | Framework adapters |
@@ -89,6 +90,8 @@ Only update README.md if the corresponding source changed:
 | `packages/ai-core/src/scoring/heuristic.ts` | Selector Scoring table |
 | `packages/framework-adapters/src/` | Framework Support table |
 | `apps/cli/src/commands/` | Commands section |
+| `apps/cli/src/logger.ts` | Commands section (debug flag docs) |
+| `apps/cli/src/server/repository.ts` | Commands section |
 
 Apply the same rules as Step 4: surgical edits only, preserve style.
 
@@ -96,9 +99,14 @@ Apply the same rules as Step 4: surgical edits only, preserve style.
 
 ## Step 6 — Commit
 
-If any edits were made, stage only the docs files:
+Stage only the files that were actually edited — never stage a file you did not modify:
 ```
-git add CLAUDE.md README.md
+git add CLAUDE.md      # only if CLAUDE.md was edited in Steps 3–4
+git add README.md      # only if README.md was edited in Step 5
+```
+
+If at least one file was staged, commit:
+```
 git commit -m "docs: sync CLAUDE.md and README.md with <base-ref>..HEAD changes"
 ```
 
@@ -107,7 +115,7 @@ Print a summary:
 Docs synced
   Base ref:          <base-ref>
   Sections updated:  <list>
-  Files committed:   CLAUDE.md, README.md  (or "No changes needed")
+  Files committed:   <exact list of staged files, or "none">
 ```
 
-If no edits were needed, print "CLAUDE.md and README.md are already in sync with the code." and do not create an empty commit.
+If no edits were needed in either file, print "CLAUDE.md and README.md are already in sync with the code." and do not create an empty commit.
