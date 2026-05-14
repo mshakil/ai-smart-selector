@@ -1,6 +1,6 @@
 {
   "name": "@smartlocator/framework-adapters",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Playwright and Cypress code generators for SmartLocator AI",
   "license": "MIT",
   "keywords": [
