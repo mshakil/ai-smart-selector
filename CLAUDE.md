@@ -31,7 +31,9 @@ ai-selector-extension/
 │   └── bump-version.mjs    # Bump version across all package.json files + CLI .version() call
 ├── .claude/
 │   ├── agents/
-│   │   └── senior-architect-reviewer.md  # @agent-senior-architect-reviewer subagent
+│   │   ├── senior-architect-reviewer.md  # @senior-architect-reviewer — architectural code review
+│   │   ├── changelog.md                  # @changelog <version> — generate CHANGELOG.md entry from git log
+│   │   └── test-stub.md                  # @test-stub <pom-file> — generate Playwright/Cypress test stub after a patch
 │   └── commands/
 │       ├── release.md      # /release <version|patch|minor|major> — full release workflow
 │       └── docs-sync.md    # /docs-sync [ref] — sync CLAUDE.md + README.md to code
