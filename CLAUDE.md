@@ -29,6 +29,12 @@ ai-selector-extension/
 ├── scripts/
 │   ├── publish-all.mjs     # Publish all packages in dependency order (supports --dry-run, --otp)
 │   └── bump-version.mjs    # Bump version across all package.json files + CLI .version() call
+├── .claude/
+│   ├── agents/
+│   │   └── senior-architect-reviewer.md  # @agent-senior-architect-reviewer subagent
+│   └── commands/
+│       ├── release.md      # /release <version|patch|minor|major> — full release workflow
+│       └── docs-sync.md    # /docs-sync [ref] — sync CLAUDE.md + README.md to code
 ├── package.json            # pnpm workspaces + Turborepo root
 ├── pnpm-workspace.yaml
 ├── turbo.json
@@ -64,6 +70,15 @@ pnpm run version:bump 0.2.0       # bump version in all package.json files + CLI
 ```bash
 cd packages/ai-core && pnpm exec vitest run src/__tests__/heuristic.test.ts
 cd packages/engine  && pnpm exec vitest run src/__tests__/patch-manager.test.ts
+```
+
+**Claude Code slash commands** (invoke inside Claude Code chat):
+```
+/release 0.2.0          # bump all versions, lint+test gate, dry-run preview, merge dev→master, push
+/release patch          # auto-calculates next patch version from apps/cli/package.json
+/release minor          # auto-calculates next minor version
+/docs-sync              # diff since last git tag, update stale CLAUDE.md + README.md sections, commit
+/docs-sync v0.1.3       # diff from a specific tag or commit ref
 ```
 
 ## Architecture
