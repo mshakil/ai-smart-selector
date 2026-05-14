@@ -48,19 +48,37 @@ export function watchRepository(index: RepositoryIndex, onUpdate?: () => void): 
     depth: 8,
   });
 
-  const refresh = (filePath: string) => {
-    index.pageObjects = index.pageObjects.filter(e => e.filePath !== filePath);
-    index.pageObjects.push(...parsePageObject(filePath, index.rootDir));
-    onUpdate?.();
+  // Debounce timers keyed by file path to coalesce rapid save events
+  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  const scheduleRefresh = (filePath: string) => {
+    const existing = debounceTimers.get(filePath);
+    if (existing) clearTimeout(existing);
+    debounceTimers.set(filePath, setTimeout(() => {
+      debounceTimers.delete(filePath);
+      // Atomic update: collect new entries before mutating the array
+      const newEntries = parsePageObject(filePath, index.rootDir);
+      index.pageObjects = [
+        ...index.pageObjects.filter(e => e.filePath !== filePath),
+        ...newEntries,
+      ];
+      onUpdate?.();
+    }, 150));
   };
 
   watcher
-    .on('change', refresh)
-    .on('add', refresh)
+    .on('change', scheduleRefresh)
+    .on('add', scheduleRefresh)
     .on('unlink', (filePath) => {
+      const t = debounceTimers.get(filePath);
+      if (t) { clearTimeout(t); debounceTimers.delete(filePath); }
       index.pageObjects = index.pageObjects.filter(e => e.filePath !== filePath);
       onUpdate?.();
     });
 
-  return () => void watcher.close();
+  return () => {
+    debounceTimers.forEach(clearTimeout);
+    debounceTimers.clear();
+    void watcher.close();
+  };
 }

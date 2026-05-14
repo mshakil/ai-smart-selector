@@ -12,7 +12,7 @@ export class OpenAIProvider implements AIProvider {
     this.client = new OpenAI({ apiKey });
   }
 
-  async generateSelector(payload: ElementCapturePayload): Promise<AIProviderResult> {
+  async generateSelector(payload: ElementCapturePayload, signal?: AbortSignal): Promise<AIProviderResult> {
     const userContent = `${buildElementSnippet(payload)}\n\nPage URL: ${payload.url}`;
 
     const completion = await this.client.chat.completions.create({
@@ -24,7 +24,7 @@ export class OpenAIProvider implements AIProvider {
       response_format: { type: 'json_object' },
       temperature: 0,
       max_tokens: 256,
-    });
+    }, { signal });
 
     return parseAIResponse(completion.choices[0]?.message?.content ?? '{}');
   }

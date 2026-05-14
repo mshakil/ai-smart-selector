@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, chmodSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
@@ -29,11 +29,11 @@ export function loadConfig(): SmartLocatorConfig {
 
   if (envOpenAI) {
     config.openaiKey = envOpenAI;
-    if (config.provider === 'none') config.provider = 'openai';
+    config.provider = 'openai';
   }
   if (envClaude) {
     config.claudeKey = envClaude;
-    if (config.provider === 'none') config.provider = 'claude';
+    if (!envOpenAI) config.provider = 'claude';
   }
 
   return config;
@@ -44,6 +44,7 @@ export function saveConfig(patch: Partial<SmartLocatorConfig>): SmartLocatorConf
   const next: SmartLocatorConfig = { ...current, ...patch };
   mkdirSync(CONFIG_DIR, { recursive: true });
   writeFileSync(CONFIG_PATH, JSON.stringify(next, null, 2), 'utf8');
+  try { chmodSync(CONFIG_PATH, 0o600); } catch { /* no-op on Windows */ }
   return next;
 }
 

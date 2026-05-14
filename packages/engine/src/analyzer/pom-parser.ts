@@ -1,16 +1,19 @@
-import { Project } from 'ts-morph';
 import { relative } from 'path';
 import type { PageObjectEntry } from './repository-index';
+import { getReadOnlyProject } from '../generator/ts-project';
 
 export function parsePageObject(filePath: string, rootDir: string): PageObjectEntry[] {
-  const project = new Project({
-    skipAddingFilesFromTsConfig: true,
-    compilerOptions: { allowJs: true, checkJs: false },
-  });
+  const project = getReadOnlyProject();
 
   let sourceFile;
   try {
-    sourceFile = project.addSourceFileAtPath(filePath);
+    const existing = project.getSourceFile(filePath);
+    if (existing) {
+      existing.refreshFromFileSystemSync();
+      sourceFile = existing;
+    } else {
+      sourceFile = project.addSourceFileAtPath(filePath);
+    }
   } catch {
     return [];
   }

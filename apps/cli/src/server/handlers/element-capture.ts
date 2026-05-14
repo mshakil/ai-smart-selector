@@ -40,8 +40,10 @@ export async function handleElementCapture(
   let aiUsed = false;
 
   if (aiProvider && topScore < HEURISTIC_AI_THRESHOLD) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
     try {
-      const result = await withTimeout(aiProvider.generateSelector(payload), AI_TIMEOUT_MS);
+      const result = await aiProvider.generateSelector(payload, controller.signal);
 
       if (result && result.candidates.length > 0) {
         const aiCandidates: SelectorCandidate[] = result.candidates.map(c => ({
@@ -58,7 +60,11 @@ export async function handleElementCapture(
         log.debug(`AI (${aiProvider.name}) improved candidates to ${candidates[0].confidence}%`);
       }
     } catch (err) {
-      log.error(`AI provider error (${aiProvider.name}): ${(err as Error).message}`);
+      if ((err as Error).name !== 'AbortError') {
+        log.error(`AI provider error (${aiProvider.name}): ${(err as Error).message}`);
+      }
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -94,9 +100,3 @@ export async function handleElementCapture(
   });
 }
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
-  return Promise.race([
-    promise,
-    new Promise<null>(resolve => setTimeout(() => resolve(null), ms)),
-  ]);
-}

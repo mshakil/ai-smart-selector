@@ -1,5 +1,5 @@
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, isAbsolute } from 'path';
 
 export interface SmartLocatorProjectConfig {
   /** Extra glob patterns to include when scanning for POM files. */
@@ -21,18 +21,48 @@ const CONFIG_FILENAMES = [
   'smartlocator.config.cjs',
 ];
 
+function validateConfig(raw: unknown, rootDir: string): SmartLocatorProjectConfig {
+  if (!raw || typeof raw !== 'object') return {};
+  const obj = raw as Record<string, unknown>;
+  const result: SmartLocatorProjectConfig = {};
+
+  if (Array.isArray(obj['includePatterns'])) {
+    result.includePatterns = (obj['includePatterns'] as unknown[])
+      .filter((p): p is string => typeof p === 'string')
+      .filter(p => {
+        // Reject patterns that escape the repo root via absolute paths or traversal
+        if (isAbsolute(p)) return false;
+        const resolved = resolve(rootDir, p.split('*')[0] ?? '');
+        return resolved.startsWith(resolve(rootDir));
+      });
+  }
+
+  if (Array.isArray(obj['excludePatterns'])) {
+    result.excludePatterns = (obj['excludePatterns'] as unknown[])
+      .filter((p): p is string => typeof p === 'string');
+  }
+
+  if (obj['attributeScores'] && typeof obj['attributeScores'] === 'object' && !Array.isArray(obj['attributeScores'])) {
+    const scores: Record<string, number> = {};
+    for (const [k, v] of Object.entries(obj['attributeScores'] as Record<string, unknown>)) {
+      if (typeof v === 'number') scores[k] = v;
+    }
+    result.attributeScores = scores;
+  }
+
+  return result;
+}
+
 export async function loadProjectConfig(rootDir: string): Promise<SmartLocatorProjectConfig> {
   for (const filename of CONFIG_FILENAMES) {
     const configPath = join(rootDir, filename);
     if (!existsSync(configPath)) continue;
 
     try {
-      // Use dynamic import — works for ESM and CJS; tsx/tsup handles TS at runtime.
-      const mod = await import(configPath) as { default?: SmartLocatorProjectConfig } | SmartLocatorProjectConfig;
-      const config = (mod as { default?: SmartLocatorProjectConfig }).default ?? (mod as SmartLocatorProjectConfig);
-      return config ?? {};
+      const mod = await import(configPath) as { default?: unknown } | unknown;
+      const raw = (mod as { default?: unknown }).default ?? mod;
+      return validateConfig(raw, rootDir);
     } catch {
-      // Config file present but couldn't be loaded — warn but don't crash.
       console.warn(`[smartlocator] Failed to load config from ${configPath}`);
     }
   }

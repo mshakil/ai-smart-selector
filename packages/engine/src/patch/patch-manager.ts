@@ -37,7 +37,7 @@ export class PatchManager {
     }
 
     const diff = generateUnifiedDiff(originalSource, insertion.newSource, input.filePath);
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = crypto.randomUUID();
 
     const patch: StagedPatch = {
       id,

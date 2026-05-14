@@ -1,14 +1,17 @@
-import { Project } from 'ts-morph';
+import { getReadOnlyProject } from './ts-project';
 
 export function isDuplicateProperty(filePath: string, className: string, propertyName: string): boolean {
-  const project = new Project({
-    skipAddingFilesFromTsConfig: true,
-    compilerOptions: { allowJs: true, checkJs: false },
-  });
+  const project = getReadOnlyProject();
 
   let sourceFile;
   try {
-    sourceFile = project.addSourceFileAtPath(filePath);
+    const existing = project.getSourceFile(filePath);
+    if (existing) {
+      existing.refreshFromFileSystemSync();
+      sourceFile = existing;
+    } else {
+      sourceFile = project.addSourceFileAtPath(filePath);
+    }
   } catch {
     return false;
   }

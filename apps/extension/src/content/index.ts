@@ -17,6 +17,7 @@ import {
 let isConnected = false;
 let captureMode = false;
 let lastCandidates: SelectorCandidatesEvent['payload'] | null = null;
+let captureClickHandler: ((e: MouseEvent) => void) | null = null;
 
 const host = createOverlayHost({
   onRequestPatch(candidate: SelectorCandidate, targetFile: string, elementName: string, action) {
@@ -77,43 +78,50 @@ chrome.runtime.onMessage.addListener((msg: {
 
 // ── Keyboard / mouse capture ──────────────────────────────────────────────────
 
+function enterCaptureMode() {
+  captureMode = true;
+  document.body.style.cursor = 'crosshair';
+  captureClickHandler = (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    exitCaptureMode();
+    if (!isConnected) {
+      showStatus(host, 'disconnected', 'Agent not running. Run: smartlocator start');
+      return;
+    }
+    const payload = extractElementMetadata(e.target as HTMLElement);
+    sendToAgent({ type: 'ELEMENT_CAPTURED', payload });
+  };
+  document.addEventListener('click', captureClickHandler, { capture: true });
+  showStatus(host, isConnected ? 'capture-ready' : 'disconnected');
+}
+
+function exitCaptureMode() {
+  captureMode = false;
+  document.body.style.cursor = '';
+  if (captureClickHandler) {
+    document.removeEventListener('click', captureClickHandler, { capture: true });
+    captureClickHandler = null;
+  }
+}
+
 document.addEventListener('keydown', (e) => {
   if (e.altKey && e.code === 'KeyC' && !e.repeat) {
     e.preventDefault();
-    captureMode = !captureMode;
-    document.body.style.cursor = captureMode ? 'crosshair' : '';
-
     if (captureMode) {
-      showStatus(host, isConnected ? 'capture-ready' : 'disconnected');
-    } else {
+      exitCaptureMode();
       hideOverlay(host);
+    } else {
+      enterCaptureMode();
     }
     return;
   }
 
   if (e.code === 'Escape' && captureMode) {
-    captureMode = false;
-    document.body.style.cursor = '';
+    exitCaptureMode();
     hideOverlay(host);
   }
 });
-
-document.addEventListener('click', (e) => {
-  if (!captureMode) return;
-  e.preventDefault();
-  e.stopImmediatePropagation();
-
-  captureMode = false;
-  document.body.style.cursor = '';
-
-  if (!isConnected) {
-    showStatus(host, 'disconnected', 'Agent not running. Run: smartlocator start');
-    return;
-  }
-
-  const payload = extractElementMetadata(e.target as HTMLElement);
-  sendToAgent({ type: 'ELEMENT_CAPTURED', payload });
-}, true);
 
 // Register with the background service worker.
 chrome.runtime.sendMessage({ type: 'CONTENT_READY' }).catch(() => { /* sw not ready yet */ });

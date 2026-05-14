@@ -2,7 +2,7 @@ import type { ElementCapturePayload, SelectorCandidate } from '@smartlocator/sha
 
 export interface AIProvider {
   readonly name: string;
-  generateSelector(payload: ElementCapturePayload): Promise<AIProviderResult>;
+  generateSelector(payload: ElementCapturePayload, signal?: AbortSignal): Promise<AIProviderResult>;
 }
 
 export interface AIProviderResult {

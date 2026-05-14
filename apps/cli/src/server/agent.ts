@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import type { IncomingMessage } from 'http';
 import type { ClientToServerEvent, ServerToClientEvent } from '@smartlocator/shared';
 import type { AIProvider } from '@smartlocator/ai-core';
 import type { RepositoryIndex, PatchManager, Framework } from '@smartlocator/engine';
@@ -15,8 +16,18 @@ export interface AgentDependencies {
   framework: Framework | null;
 }
 
+// C-2: Only accept connections from the Chrome extension (or local dev tools in debug mode).
+function isAllowedOrigin(req: IncomingMessage): boolean {
+  const origin = req.headers['origin'] ?? '';
+  if (process.env['SMARTLOCATOR_DEBUG'] === '1') return true;
+  return origin.startsWith('chrome-extension://');
+}
+
 export function startAgent(deps: AgentDependencies): WebSocketServer {
-  const wss = new WebSocketServer({ port: WS_PORT });
+  const wss = new WebSocketServer({
+    port: WS_PORT,
+    verifyClient: ({ req }: { req: IncomingMessage }) => isAllowedOrigin(req),
+  });
 
   wss.on('connection', (ws) => {
     log.info('Extension connected');
@@ -55,7 +66,7 @@ async function dispatch(
       break;
 
     case 'REQUEST_PATCH':
-      await handleRequestPatch(ws, event.payload, deps.patchManager, deps.framework);
+      await handleRequestPatch(ws, event.payload, deps.patchManager, deps.framework, deps.repoIndex);
       break;
 
     case 'APPROVE_PATCH': {
@@ -73,10 +84,14 @@ async function dispatch(
       break;
     }
 
-    case 'REJECT_PATCH':
-      deps.patchManager.reject(event.payload.patchId);
+    case 'REJECT_PATCH': {
+      const removed = deps.patchManager.reject(event.payload.patchId);
+      if (!removed) {
+        send(ws, { type: 'ERROR', payload: { code: 'PATCH_NOT_FOUND', message: `No staged patch with id ${event.payload.patchId}` } });
+      }
       log.debug(`Patch ${event.payload.patchId} rejected`);
       break;
+    }
 
     case 'ROLLBACK_PATCH': {
       const patch = deps.patchManager.get(event.payload.patchId);

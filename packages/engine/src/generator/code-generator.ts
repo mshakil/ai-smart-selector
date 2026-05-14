@@ -1,4 +1,5 @@
-import { Project, type ClassDeclaration, type ConstructorDeclaration } from 'ts-morph';
+import { type ClassDeclaration, type ConstructorDeclaration } from 'ts-morph';
+import { makeFreshProject } from './ts-project';
 import type { Framework } from '../analyzer/framework-detector';
 import type { ActionType } from '@smartlocator/shared';
 
@@ -22,10 +23,7 @@ export interface CodeGenerationInput {
 type SelectorConvention = 'property' | 'constructor';
 
 export function generateInsertion(input: CodeGenerationInput): GeneratedInsertion | null {
-  const project = new Project({
-    skipAddingFilesFromTsConfig: true,
-    compilerOptions: { allowJs: true, checkJs: false },
-  });
+  const project = makeFreshProject();
 
   let sourceFile;
   try {
@@ -37,75 +35,77 @@ export function generateInsertion(input: CodeGenerationInput): GeneratedInsertio
   const classDecl = sourceFile.getClass(input.className);
   if (!classDecl) return null;
 
-  const convention = detectConvention(classDecl);
+  try {
+    const convention = detectConvention(classDecl);
 
-  if (convention === 'constructor') {
-    const ctor = classDecl.getConstructors()[0];
-    if (!ctor) return null;
+    if (convention === 'constructor') {
+      const ctor = classDecl.getConstructors()[0];
+      if (!ctor) return null;
 
-    const pageParam = detectPageParam(ctor);
-    const locatorText = buildLocatorExpression(
-      input.selector, input.selectorStrategy, input.framework, pageParam
-    );
-
-    // Add property declaration with type annotation (no initializer)
-    const lastProp = classDecl.getProperties().at(-1);
-    if (lastProp) lastProp.appendWhitespace('\n  ');
-    classDecl.addProperty({ name: input.propertyName, type: 'Locator' });
-
-    // Add assignment at the end of the constructor body
-    ctor.addStatements(`this.${input.propertyName} = ${locatorText};`);
-
-    // Ensure Locator is imported from @playwright/test
-    if (input.framework === 'playwright') {
-      const pwImport = sourceFile.getImportDeclaration(d =>
-        d.getModuleSpecifierValue().includes('@playwright/test')
+      const pageParam = detectPageParam(ctor);
+      const locatorText = buildLocatorExpression(
+        input.selector, input.selectorStrategy, input.framework, pageParam
       );
-      if (pwImport) {
-        const already = pwImport.getNamedImports().some(n => n.getName() === 'Locator');
-        if (!already) pwImport.addNamedImport('Locator');
-      } else {
-        sourceFile.insertImportDeclaration(0, {
-          moduleSpecifier: '@playwright/test',
-          namedImports: ['Locator'],
-        });
-      }
-    }
-  } else {
-    // property-style: readonly initializer on the class body
-    const locatorText = buildLocatorExpression(
-      input.selector, input.selectorStrategy, input.framework, 'this.page'
-    );
 
-    const lastProp = classDecl.getProperties().at(-1);
-    if (lastProp) {
-      lastProp.appendWhitespace('\n  ');
-      classDecl.addProperty({
-        name: input.propertyName,
-        initializer: locatorText,
-        isReadonly: input.framework === 'playwright',
-      });
+      // Collect the whitespace hint before mutating, then apply all at once
+      const lastProp = classDecl.getProperties().at(-1);
+      if (lastProp) lastProp.appendWhitespace('\n  ');
+      classDecl.addProperty({ name: input.propertyName, type: 'Locator' });
+      ctor.addStatements(`this.${input.propertyName} = ${locatorText};`);
+
+      // Ensure Locator is imported from @playwright/test
+      if (input.framework === 'playwright') {
+        const pwImport = sourceFile.getImportDeclaration(d =>
+          d.getModuleSpecifierValue().includes('@playwright/test')
+        );
+        if (pwImport) {
+          const already = pwImport.getNamedImports().some(n => n.getName() === 'Locator');
+          if (!already) pwImport.addNamedImport('Locator');
+        } else {
+          sourceFile.insertImportDeclaration(0, {
+            moduleSpecifier: '@playwright/test',
+            namedImports: ['Locator'],
+          });
+        }
+      }
     } else {
-      const firstMember = classDecl.getMembers()[0];
-      if (firstMember) {
-        firstMember.prependWhitespace('  ');
-        classDecl.insertProperty(0, {
-          name: input.propertyName,
-          initializer: locatorText,
-          isReadonly: input.framework === 'playwright',
-        });
-      } else {
+      // property-style: readonly initializer on the class body
+      const locatorText = buildLocatorExpression(
+        input.selector, input.selectorStrategy, input.framework, 'this.page'
+      );
+
+      const lastProp = classDecl.getProperties().at(-1);
+      if (lastProp) {
+        lastProp.appendWhitespace('\n  ');
         classDecl.addProperty({
           name: input.propertyName,
           initializer: locatorText,
           isReadonly: input.framework === 'playwright',
         });
+      } else {
+        const firstMember = classDecl.getMembers()[0];
+        if (firstMember) {
+          firstMember.prependWhitespace('  ');
+          classDecl.insertProperty(0, {
+            name: input.propertyName,
+            initializer: locatorText,
+            isReadonly: input.framework === 'playwright',
+          });
+        } else {
+          classDecl.addProperty({
+            name: input.propertyName,
+            initializer: locatorText,
+            isReadonly: input.framework === 'playwright',
+          });
+        }
       }
     }
-  }
 
-  // Always add the action method regardless of locator convention
-  addActionMethod(classDecl, input.propertyName, input.action, input.framework);
+    // Always add the action method regardless of locator convention
+    addActionMethod(classDecl, input.propertyName, input.action, input.framework);
+  } catch {
+    return null;
+  }
 
   return {
     filePath: input.filePath,
