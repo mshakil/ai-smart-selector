@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(pnpm install *)",
-      "Bash(pnpm run *)"
+      "Bash(pnpm run *)",
+      "Bash(git *)",
+      "Bash(node scripts/*)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\work-repository\\\\repos\\\\ai-selector-extension\\\\.claude\\\\agent-memory\\\\\" -Force 2>$null | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\work-repository\\\\repos\\\\ai-selector-extension\\\\.claude\\\\agent-memory\\\\senior-architect-reviewer\\\\\" -Force 2>$null | ForEach-Object { $_.FullName })"
     ]
   }
 }
