@@ -127,7 +127,7 @@ Both a **locator property** and an **action method** are generated and inserted 
 - The extension communicates with the local agent only over `ws://localhost:3137`
 - The local agent accepts WebSocket connections only from `chrome-extension://` origins — other localhost processes are rejected
 - All file paths provided by the extension are validated against the repo root before any read or write — path traversal attempts are blocked
-- AI API keys are stored with `chmod 0o600` (Unix)
+- AI API keys are stored with `chmod 0o600` (Unix); `SMARTLOCATOR_OPENAI_KEY` and `SMARTLOCATOR_CLAUDE_KEY` env vars override the config file (useful in CI)
 
 ## Install from Source
 
