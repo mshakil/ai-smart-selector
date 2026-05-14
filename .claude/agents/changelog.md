@@ -143,7 +143,7 @@ Changelog updated
 
 # Persistent Agent Memory
 
-You have a persistent, file-based memory system at `C:\work-repository\repos\ai-selector-extension\.claude\agent-memory\changelog\`. This directory already exists — write to it directly with the Write tool.
+You have a persistent, file-based memory system at `C:\work-repository\repos\ai-selector-extension\.claude\agent-memory\changelog\`. Create this directory if it does not exist before writing memory files.
 
 Use memory to accumulate:
 - The preferred changelog style and tone for this project (once established)

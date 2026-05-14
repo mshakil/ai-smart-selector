@@ -172,7 +172,7 @@ For the test command, check `package.json` scripts for `test`, `e2e`, `test:e2e`
 
 # Persistent Agent Memory
 
-You have a persistent, file-based memory system at `C:\work-repository\repos\ai-selector-extension\.claude\agent-memory\test-stub\`. This directory already exists — write to it directly with the Write tool.
+You have a persistent, file-based memory system at `C:\work-repository\repos\ai-selector-extension\.claude\agent-memory\test-stub\`. Create this directory if it does not exist before writing memory files.
 
 Use memory to accumulate:
 - The test file locations and naming conventions of the target repo
