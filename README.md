@@ -125,6 +125,9 @@ Both a **locator property** and an **action method** are generated and inserted 
 - Your repository source code never leaves your machine — only the captured element's HTML snippet is sent to the AI API
 - File writes require explicit approval via the **Apply** button; the agent never auto-writes
 - The extension communicates with the local agent only over `ws://localhost:3137`
+- The local agent accepts WebSocket connections only from `chrome-extension://` origins — other localhost processes are rejected
+- All file paths provided by the extension are validated against the repo root before any read or write — path traversal attempts are blocked
+- AI API keys are stored with `chmod 0o600` (Unix)
 
 ## Install from Source
 
