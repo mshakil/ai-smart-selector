@@ -6,7 +6,7 @@ import { installExtensionCommand } from './commands/install-extension.js';
 const program = new Command()
   .name('smartlocator')
   .description('AI-assisted selector intelligence for test automation')
-  .version('0.1.2');
+  .version('0.1.3');
 
 program.addCommand(startCommand());
 program.addCommand(configureCommand());

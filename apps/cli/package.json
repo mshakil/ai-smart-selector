@@ -1,6 +1,6 @@
 {
   "name": "smartlocator",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "AI-assisted selector intelligence for test automation engineers — capture elements, generate robust selectors, write POM code directly from the browser",
   "license": "MIT",
   "keywords": [
