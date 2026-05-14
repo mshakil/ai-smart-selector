@@ -17,6 +17,13 @@ The user invoked `/release $ARGUMENTS`.
 
 To auto-calculate: split current version on `.`, increment the relevant part, reset lower parts to `0`.
 
+After resolving `<VERSION>`, read the current version from `apps/cli/package.json`. Compare using semver ordering. If `<VERSION>` is not strictly greater than the current version, print:
+```
+Error: <VERSION> is not greater than the current version <CURRENT>.
+Did you mean /release patch?
+```
+and stop — before any file is touched.
+
 ---
 
 ## Step 2 — Pre-flight checks
