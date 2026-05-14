@@ -25,11 +25,15 @@ Run each check and abort (with a clear message) if any fail:
 
 1. **Clean working tree** — run `git status --porcelain`. If output is non-empty, print the dirty files and stop. The version bump commit must be the only change on this release.
 
-2. **Branch warning** — run `git branch --show-current`. If not `dev`, print a yellow warning but continue: "Warning: releasing from branch '<name>' rather than dev."
+2. **Branch guard** — run `git branch --show-current`.
+   - If on `master`: print "Error: /release must not be run on master. Switch to dev first." and **stop immediately**.
+   - If not `dev` (but not `master`): print a yellow warning "Warning: releasing from branch '<name>' rather than dev." and continue.
 
-3. **Lint** — run `pnpm run lint`. Abort on non-zero exit.
+3. **Build** — run `pnpm run build`. Abort on non-zero exit. This catches tsup compilation failures before any version files are touched.
 
-4. **Tests** — run `pnpm run test`. Abort on non-zero exit.
+4. **Lint** — run `pnpm run lint`. Abort on non-zero exit.
+
+5. **Tests** — run `pnpm run test`. Abort on non-zero exit.
 
 Print a green "Pre-flight passed." before continuing.
 
@@ -48,7 +52,20 @@ This updates 5 × `package.json` files and the `.version()` call in `apps/cli/sr
 
 ## Step 4 — Commit the version bump
 
-Stage only the version files — never use `git add -A`:
+Run `git diff --name-only` to see exactly what `bump-version.mjs` modified. Verify the output matches these 6 files — no more, no fewer:
+
+```
+packages/shared/package.json
+packages/framework-adapters/package.json
+packages/ai-core/package.json
+packages/engine/package.json
+apps/cli/package.json
+apps/cli/src/index.ts
+```
+
+If any unexpected file appears, print "Unexpected file in version bump diff: <file>. Aborting." and stop. If any expected file is missing, print "Expected file not modified by bump: <file>. Aborting." and stop.
+
+Then stage exactly those 6 files — never use `git add -A`:
 ```
 git add packages/shared/package.json
 git add packages/framework-adapters/package.json
@@ -87,7 +104,12 @@ git merge <branch> --no-ff -m "chore: release v<VERSION>"
 git push origin master
 ```
 
-If any command fails, print the error, attempt `git checkout <branch>` to restore state, and stop.
+Handle failures per command:
+
+- **`git checkout master` fails**: print the error, run `git checkout <original-branch>`, and stop.
+- **`git pull origin master` fails**: print the error, run `git checkout <original-branch>`, and stop.
+- **`git merge` fails** (conflict or other): run `git merge --abort` first to restore master to its pre-merge state, then run `git checkout <original-branch>`. Print "Merge conflict detected. Resolve conflicts on <original-branch> first, then re-run /release." and stop.
+- **`git push origin master` fails**: print the error and run `git checkout <original-branch>`. Do NOT attempt a rollback — the merge commit exists safely on local master. Advise: "Push failed. Run `git push origin master` manually after resolving the issue."
 
 ---
 
